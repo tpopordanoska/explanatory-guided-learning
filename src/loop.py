@@ -1,5 +1,6 @@
 import numpy as np
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import f1_score, classification_report
+
 from . import select_random, select_by_coordinates, least_confident_idx, plot_decision_surface
 
 
@@ -46,9 +47,9 @@ class ActiveLearningLoop:
 
             # Calculate the accuracy of the model
             y_pred = model.predict(X_unlabeled)
-            score = accuracy_score(y_unlabeled, y_pred)
+            score = f1_score(y_unlabeled, y_pred)
             acc_scores.append(score)
-            print("Accuracy score:", score)
+            print("F1 score:", score)
             print(classification_report(y_unlabeled, y_pred))
             # plot_decision_surface(model, X_train, y_train, X_unlabeled, y_unlabeled, X_unlabeled[query_idx])
 
