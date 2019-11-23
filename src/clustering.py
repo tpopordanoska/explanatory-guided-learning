@@ -1,16 +1,16 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
 from pyclustering.cluster.kmedoids import kmedoids
+from sklearn.cluster import KMeans
+from sklearn.utils import check_random_state
 
 
 def run_kmeans(points, n_clusters=2, use_labels="True"):
     """
     Runs k-means algorithm on the given points with the given number of clusters and plot the centroids.
 
-    :param use_labels: Whether to use the labels of the points as an attribute.
     :param points: The dataset.
     :param n_clusters: The number of clusters to be found in the data.
+    :param use_labels: Whether to use the labels of the points as an attribute.
 
     """
     kmeans = KMeans(n_clusters=n_clusters, random_state=0)
@@ -27,17 +27,19 @@ def run_kmeans(points, n_clusters=2, use_labels="True"):
     plt.show()
 
 
-def run_kmedoids(points, n_clusters, use_labels="True"):
+def run_kmedoids(points, n_clusters, use_labels="True", rng=0):
     """
     Run kmedoids algorithm on the given points with the given number of clusters and plot the centroids.
 
-    :param use_labels: Whether to use the labels of the points as an attribute.
     :param points: The dataset.
     :param n_clusters: The number of clusters to be found in the data.
+    :param use_labels: Whether to use the labels of the points as an attribute.
+    :param rng: RandomState object, or seed 0 by default
 
     """
     # Set random initial medoids.
-    initial_medoids = np.random.randint(len(points), size=n_clusters)
+    rng = check_random_state(rng)
+    initial_medoids = rng.randint(len(points), size=n_clusters)
 
     # Create instance of K-Medoids algorithm.
     if use_labels:

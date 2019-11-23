@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.utils import check_random_state
 
 
 def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled, y_pred=None, least_conf=None, soft=True, title = ""):
@@ -11,6 +12,7 @@ def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled,
     :param y_labeled: The labels for the training data points
     :param X_unlabeled: The unlabeled data points
     :param y_unlabeled: The true labels for the "unlabeled"
+    :param y_pred: The predictions of the model
     :param least_conf: The chosen least confident example
     :param soft: Whether to plot  kernel-like boundary
 
@@ -60,19 +62,24 @@ def plot_points(X, y, title=""):
     plt.show()
 
 
-def plot_acc(acc_scores):
+def plot_acc(acc_scores1, acc_scores2, label1="", label2=""):
     """
     Plot the accuracy scores as a function of the queried instances.
 
-    :param acc_scores: The accuracy scores to be plotted
+    :param acc_scores1: The accuracy scores from the first method
+    :param acc_scores2: The accuracy scores from the second method
+    :param label1: The label to be displayed in the legend for the first accuracy scores
+    :param label2: The label to be displayed in the legend for the second accuracy scores
 
     """
-    x = np.arange(len(acc_scores))
-    plt.plot(x, acc_scores)
+    x = np.arange(max(len(acc_scores1), len(acc_scores2)))
+    plt.plot(x, acc_scores1, label=label1)
+    plt.plot(x, acc_scores2, label=label2)
     plt.grid(True)
     plt.xlabel('# instances queried')
     plt.ylabel('Accuracy score')
     plt.title('Accuracy as a function of # instances queried')
+    plt.legend()
     plt.show()
 
 
@@ -102,11 +109,14 @@ def select_by_coordinates(x, y, data):
     return [np.where((data[:, 0] == x) & (data[:, 1] == y))[0][0]]
 
 
-def select_random(data):
+def select_random(data, rng=0):
     """
     Get a random element from the given data.
 
     :param data: The data to find a random element from
+    :param rng: RandomState object, or seed 0 by default
+
     :return: A random element from the data
     """
-    return data[np.random.choice(data.shape[0], replace=False)]
+    rng = check_random_state(rng)
+    return data[rng.choice(data.shape[0], replace=False)]
