@@ -1,8 +1,8 @@
 from . import utils
 from .utils import *
 
-from . import data_manipulation
-from .data_manipulation import *
+from . import experiment
+from .experiment import *
 
 from . import learners
 from .learners import *

@@ -1,6 +1,6 @@
-from sklearn.datasets.samples_generator import make_blobs
 
 from src import *
+from src.experiment_synthethic import *
 
 LEARNERS = {
     'svm_rbf': SVM(model_name='svm_rbf'),
@@ -10,73 +10,86 @@ LEARNERS = {
     # 'gbc': GradientBoosting()
 }
 
-methods = ["al_least_confident", "sq_random"]
+path = create_folders()
+# methods = ["sq_random"]
+methods = ["al_least_confident", "sq_random", 'optimal_user']
 clust_use_labels = True
-seeds = [0, 25, 42, 64, 100]
+balanced_db = False
+tiny_clusters = True
+max_iter = 50
+cross_val = 5
+
+seeds=[0]
+# seeds = [0, 25, 42, 64, 100]
 scores_al = []
 scores_sq = []
+scores_ou = []
+
+test_scores_al = []
+test_scores_sq = []
+test_scores_ou = []
 
 for seed in seeds:
     rng = np.random.RandomState(seed)
-    # Generate mock data with balanced number of positive and negative examples
-    # X, y = generate_points(5, 40, 1)
 
-    # Generate mock data with rare grid class
-    X_pos, y_pos = generate_positive(5)
-    X_neg, y_neg = generate_negative(5, 40, rng)
-
-    known_idx, unknown_idx = split_data(X_pos, y_pos, 0.6, rng)
-
-    # Generate tiny clusters (0 to 5 points) around the positive points
-    centers = X_pos[known_idx]
-    n_samples = rng.randint(0, 5, size=len(centers))
-    cluster_std = rng.uniform(0, 0.1, size=len(centers))
-
-    Xpos, _ = make_blobs(n_samples=n_samples, cluster_std=cluster_std, centers=centers, n_features=2, random_state=1)
-    ypos = np.ones((len(Xpos)), dtype=int)
-
-    X = np.concatenate((Xpos, X_neg), axis=0)
-    y = np.concatenate((ypos, y_neg), axis=0)
-
-    # X = np.concatenate((X_pos[known_idx], X_neg), axis=0)
-    # y = np.concatenate((y_pos[known_idx], y_neg), axis=0)
-    plot_points(X, y, "Initial points")
+    synthetic_exp = Synthetic(balanced_db, tiny_clusters, rng)
+    plot_points(synthetic_exp.X, synthetic_exp.y, "Initial points", path)
 
     # Split the data into labeled and unlabeled
-    labeled_indicies, unlabeled_indicies = split_data(X, y, 0.8, rng)
-    X_labeled, y_labeled = X[labeled_indicies], y[labeled_indicies]
-    X_unlabeled, y_unlabeled = X[unlabeled_indicies], y[unlabeled_indicies]
+    folds = synthetic_exp.split(prop_known=0.2, n_splits=cross_val)
+    for k, (known_idx, train_idx, test_idx) in enumerate(folds):
+        print('fold {} : #known {}, #train {}, #test {}'.format(k + 1, len(known_idx), len(train_idx), len(test_idx)))
 
-    print("Unlabeled points: ", X_unlabeled.shape, " y: ", y_unlabeled.shape)
-    print("Labeled points: ", X_labeled.shape, " y: ", y_labeled.shape)
-    plot_points(X_labeled, y_labeled, "The labeled points")
+        # for learner in LEARNERS:
+        for method in methods:
+            model = SVM(model_name='svm_rbf', rng=rng)
+            print("Running model: ", model.model_name)
+            print("Method", method)
+            acc_scores, test_acc_scores = \
+                ActiveLearningLoop().run(model, synthetic_exp, known_idx, train_idx, test_idx, max_iter=max_iter, method=method, path=path)
+
+            if method == 'al_least_confident':
+                scores_al.append(acc_scores)
+                test_scores_al.append(test_acc_scores)
+            elif method == 'sq_random':
+                scores_sq.append(acc_scores)
+                test_scores_sq.append(test_acc_scores)
+            elif method == "optimal_user":
+                scores_ou.append(acc_scores)
+                test_scores_ou.append(test_acc_scores)
+
+            # points = concatenate_data(X_train_new, y_train_new, X_unlabeled_new, y_unlabeled_new, y_pred)
+
+            # run_kmeans(points, 10, clust_use_labels)
+            # run_kmedoids(points, 10, clust_use_labels, rng)
+
+smallest_len_al = min([len(x) for x in scores_al])
+smallest_len_sq = min([len(x) for x in scores_sq])
+smallest_len_ou = min([len(x) for x in scores_ou])
+
+scores_al = [scores[:smallest_len_al] for scores in scores_al]
+scores_sq = [scores[:smallest_len_sq] for scores in scores_sq]
+scores_ou = [scores[:smallest_len_ou] for scores in scores_ou]
+
+mean_scores_al = np.mean(scores_al, axis=0)
+mean_scores_sq = np.mean(scores_sq, axis=0)
+mean_scores_ou = np.mean(scores_ou, axis=0)
+
+test_smallest_len_al = min([len(x) for x in test_scores_al])
+test_smallest_len_sq = min([len(x) for x in test_scores_sq])
+test_smallest_len_ou = min([len(x) for x in test_scores_ou])
+
+test_scores_al = [scores[:test_smallest_len_al] for scores in test_scores_al]
+test_scores_sq = [scores[:test_smallest_len_sq] for scores in test_scores_sq]
+test_scores_ou = [scores[:test_smallest_len_ou] for scores in test_scores_ou]
+
+test_mean_scores_al = np.mean(test_scores_al, axis=0)
+test_mean_scores_sq = np.mean(test_scores_sq, axis=0)
+test_mean_scores_ou = np.mean(test_scores_ou, axis=0)
 
 
-    # for learner in LEARNERS:
-    for method in methods:
-        model = SVM(model_name='svm_rbf', rng=rng)
-        print("Running model: ", model.model_name)
-        print("Method", method)
-        X_train_new, y_train_new, X_unlabeled_new, y_unlabeled_new, y_pred, acc_scores = \
-            ActiveLearningLoop().run(model, X_labeled,
-                                     y_labeled, X_unlabeled, y_unlabeled, max_iter=12, method=method)
-        if method == 'al_least_confident':
-            scores_al.append(acc_scores)
-        elif method == 'sq_random':
-            scores_sq.append(acc_scores)
+acc_array = np.array([mean_scores_al, mean_scores_sq, mean_scores_ou])
+test_acc_array = np.array([test_mean_scores_al, test_mean_scores_sq, test_mean_scores_ou])
 
-        # Plot the predictions
-        # plot_decision_surface(model,
-        #                       X_train_new,
-        #                       y_train_new,
-        #                       X_unlabeled_new,
-        #                       y_unlabeled_new,
-        #                       y_pred=y_pred,
-        #                       title="Predictions of the model " + model.model_name)
-
-        points = concatenate_data(X_train_new, y_train_new, X_unlabeled_new, y_pred)
-
-        # run_kmeans(points, 10, clust_use_labels)
-        run_kmedoids(points, 10, clust_use_labels, rng)
-
-plot_acc(np.mean(scores_al, axis=0), np.mean(scores_sq, axis=0), "Active learning", "Search queries")
+plot_acc(acc_array, methods, title="F1 score on train set as a function of # instances queried", path=path)
+plot_acc(test_acc_array, methods, title="F1 score on test set as a function of # instances queried", path=path)
