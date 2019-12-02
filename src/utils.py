@@ -101,7 +101,7 @@ def plot_points(X, y, title="", path=None):
     plt.close()
 
 
-def plot_acc(scores, labels, title="", path=None):
+def plot_acc(scores, stds, labels, title="", path=None):
     """
     Plot the accuracy scores as a function of the queried instances.
 
@@ -112,9 +112,10 @@ def plot_acc(scores, labels, title="", path=None):
     # Filter out empty arrays or nans
     filtered_scores = [score for score in scores if not np.isnan(score).all()]
     # TODO: check if they are of equal size
-    for score, label in zip(filtered_scores, labels):
+    for score, std, label in zip(filtered_scores, stds, labels):
         x = np.arange(len(score))
         plt.plot(x, score, label=label)
+        plt.fill_between(x, score - std, score + std, alpha=0.15, linewidth=0)
     plt.grid(True)
     plt.xlabel('# instances queried')
     plt.ylabel('F1 score')
