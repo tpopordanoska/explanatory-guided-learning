@@ -1,8 +1,8 @@
 from . import utils
 from .utils import *
 
-from . import experiment
-from .experiment import *
+from src.experiments import experiment
+from src.experiments.experiment import *
 
 from . import learners
 from .learners import *

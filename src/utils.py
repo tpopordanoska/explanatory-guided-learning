@@ -18,7 +18,7 @@ def create_folders():
         print("Successfully created the directory %s " % path_results)
 
     # Create a separate folder for each time running the experiment
-    path = path_results + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    path = path_results + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
     try:
         os.mkdir(path)
     except FileExistsError:
@@ -72,7 +72,7 @@ def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled,
         plt.scatter(least_conf[0], least_conf[1], marker='x', s=169, linewidths=8, color='green', zorder=10)
     plt.title(title)
     if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + "-" + title + '.png')
+        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
     else:
         plt.show()
     plt.xlim(X[:, 0].min() - 1, X[:, 0].max() + 1)
@@ -95,7 +95,7 @@ def plot_points(X, y, title="", path=None):
     plt.ylim(X[:, 1].min() - 1, X[:, 1].max() + 1)
     plt.title(title)
     if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + "-" + title + '.png')
+        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')+ "-" + title + '.png')
     else:
         plt.show()
     plt.close()
@@ -122,7 +122,7 @@ def plot_acc(scores, stds, labels, title="", path=None):
     plt.title(title)
     plt.legend()
     if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + "-" + title + '.png')
+        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
     else:
         plt.show()
     plt.close()
@@ -155,7 +155,6 @@ def select_by_coordinates(x, y, data):
     # TODO: take care of element not found and fix [][]
     return [np.where((data[:, 0] == x) & (data[:, 1] == y))[0][0]]
 
-
 def select_random(data, rng=0):
     """
     Get a random element from the given data.
@@ -166,7 +165,8 @@ def select_random(data, rng=0):
     :return: A random element from the data
     """
     rng = check_random_state(rng)
-    return data[rng.choice(data.shape[0], replace=False)]
+    return data.iloc[rng.choice(data.shape[0], replace=False)]
+
 
 
 def concatenate_data(X_train, y_train, X_unlabeled, y_unlabeled, y_pred):
@@ -179,10 +179,10 @@ def concatenate_data(X_train, y_train, X_unlabeled, y_unlabeled, y_pred):
     :param y_unlabeled: The labels of the points from the second data matrix
     :param y_pred: The predictions of the unlabeled points
 
-    :return: One matrix with three columns (coordinates and label) of the concatenated data
+    :return: One matrix containing the features, the predictions and the true labels
     """
     Xy_train = np.concatenate((X_train, np.array([y_train]).T), axis=1)
-    Xy_unlabeled = np.concatenate((X_unlabeled, np.array([y_unlabeled]).T), axis=1)
+    Xy_unlabeled = np.concatenate((X_unlabeled, np.array([y_pred]).T), axis=1)
     Xy = np.concatenate((Xy_train, Xy_unlabeled), axis=0)
-    labels = np.concatenate((y_train, y_pred))
-    return np.concatenate((Xy, np.array([labels]).T), axis=1)
+    true_labels = np.concatenate((y_train, y_unlabeled))
+    return np.concatenate((Xy, np.array([true_labels]).T), axis=1)
