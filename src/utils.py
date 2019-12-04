@@ -111,8 +111,9 @@ def plot_acc(scores, stds, labels, title="", path=None):
     """
     # Filter out empty arrays or nans
     filtered_scores = [score for score in scores if not np.isnan(score).all()]
+    filtered_stds = [std for std in stds if not np.isnan(std).all()]
     # TODO: check if they are of equal size
-    for score, std, label in zip(filtered_scores, stds, labels):
+    for score, std, label in zip(filtered_scores, filtered_stds, labels):
         x = np.arange(len(score))
         plt.plot(x, score, label=label)
         plt.fill_between(x, score - std, score + std, alpha=0.15, linewidth=0)
