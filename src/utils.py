@@ -8,6 +8,11 @@ from sklearn.utils import check_random_state
 
 
 def create_folders():
+    """
+    Create folders for storing the plots and the graphs.
+
+    :return: The path to the created folder
+    """
     path_results = os.getcwd() + "\\results"
     try:
         os.mkdir(path_results)
@@ -45,6 +50,8 @@ def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled,
     :param y_pred: The predictions of the model
     :param least_conf: The chosen least confident example
     :param soft: Whether to plot  kernel-like boundary
+    :param title: The title of the plot
+    :param path: The path of the folder where the plot will be saved
 
     """
     # create a mesh to plot in
@@ -88,6 +95,7 @@ def plot_points(X, y, title="", path=None):
     :param X: Contains the coordinates of the points to be plotted
     :param y: The corresponding labels
     :param title: The title of the plot
+    :param path: The path of the folder where the plot will be saved
 
     """
     figure(num=None, figsize=(16, 14), facecolor='w', edgecolor='k')
@@ -103,12 +111,15 @@ def plot_points(X, y, title="", path=None):
     plt.close()
 
 
-def plot_acc(scores, stds, f1_score_passive, labels, title="", path=None):
+def plot_acc(scores, stds, f1_score_passive, title="", path=None):
     """
     Plot the accuracy scores as a function of the queried instances.
 
-    :param scores: The accuracy scores to be plotted
-    :param labels: The labels to be displayed in the legend for the accuracy scores
+    :param scores: Dictionary containing the accuracy scores for each method
+    :param stds: Dictionary containing the standard deviations for each method
+    :param f1_score_passive: The f1 score of the experiment in a passive setting
+    :param title: The title of the plot
+    :param path: The path of the folder where the plot will be saved
 
     """
     for key, score in scores.items():
@@ -133,6 +144,7 @@ def plot_acc(scores, stds, f1_score_passive, labels, title="", path=None):
     else:
         plt.show()
     plt.close()
+
 
 def least_confident_idx(**kwargs):
     """
@@ -162,12 +174,13 @@ def select_by_coordinates(x, y, data):
     # TODO: take care of element not found and fix [][]
     return [np.where((data[:, 0] == x) & (data[:, 1] == y))[0][0]]
 
-def select_random(data, rng=0):
+
+def select_random(data, rng):
     """
     Get a random element from the given data.
 
     :param data: The data to find a random element from
-    :param rng: RandomState object, or seed 0 by default
+    :param rng: RandomState object
 
     :return: A random element from the data
     """

@@ -32,6 +32,7 @@ def get_passive_f1(experiment, file):
     file.write("Passive accuracy for {}: {:.2f} (+/- {:.2f}) ".format(experiment.name, scores.mean(), scores.std() * 2))
     return scores
 
+
 path = create_folders()
 file = open(path + '\\out.txt', 'w')
 # methods = ["sq_random"]
@@ -92,8 +93,7 @@ file.write("Passive accuracy for {}:  {:.2f} (+/- {:.2f}) "
            .format(experiment.name, f1_score_passive.mean(), f1_score_passive.std() * 2))
 
 plot_acc(scores_dict_mean, scores_dict_std, f1_score_passive, title= "{} {} F1 score on train set using {}"
-         .format(experiment.model.name, experiment.name, str(n_clusters)), path=path, labels=methods)
+         .format(experiment.model.name, experiment.name, str(n_clusters)), path=path)
 
 plot_acc(scores_test_dict_mean, scores_test_dict_std, f1_score_passive, title="{} {} F1 score on test set using {}"
-         .format(experiment.model.name, experiment.name, str(n_clusters)), path=path, labels=methods)
-
+         .format(experiment.model.name, experiment.name, str(n_clusters)), path=path)

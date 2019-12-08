@@ -7,6 +7,9 @@ from sklearn.utils import check_random_state
 
 
 class Experiment:
+    """
+    Class containing common methods for the experiments
+    """
     def __init__(self, model, X, y, feature_names, name, prop_known=0.1, metric="f1", rng=None):
         self.model = model
         self.X, self.y = X, y

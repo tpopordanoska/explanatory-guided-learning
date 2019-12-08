@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pyclustering.cluster.kmedoids import kmedoids
 from sklearn.cluster import KMeans
-from sklearn.utils import check_random_state
 
 
 def run_kmeans(points, n_clusters=2, use_labels="True"):
@@ -29,7 +28,16 @@ def run_kmeans(points, n_clusters=2, use_labels="True"):
     plt.title("K-Means")
     plt.show()
 
+
 def create_meshgrid(points, kmedoids_instance):
+    """
+    Create the mesh grid to plot in.
+
+    :param points: The dataset
+    :param kmedoids_instance: Kmedoids instance
+
+    :return: The mesh grid to plot in
+    """
     # Plot the decision boundary
     h = .02
     x_min, x_max = points[:, 0].min() - 0.1, points[:, 0].max() + 0.1
@@ -41,25 +49,28 @@ def create_meshgrid(points, kmedoids_instance):
     return Z.reshape(xx.shape), xx, yy
 
 
-def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", rng=0, path=None, plots_off=True):
+def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", path=None, plots_off=True):
     """
     Run kmedoids algorithm on the given points with the given number of clusters and plot the centroids.
 
-    :param points: The dataset, including the predicted labels on the train and the real labels on the known set.
-    :param n_clusters: The number of clusters to be found in the data.
-    :param use_labels: Whether to use the labels of the points as an attribute.
-    :param rng: RandomState object, or seed 0 by default
+    :param points: Pandas DataFrame containing the features and the predicted labels on the train set
+    :param n_clusters: The number of clusters to be found in the data
+    :param other_points: Other points (ex. wrongly classified) to plot instead of the points used to find clusters
+    :param use_labels: Whether to use the labels of the points as an attribute
+    :param path: The path to the folder where the graphs will be saved
+    :param plots_off: Whether to plot the graphs
 
+    :return: Indexes (in points) of the found clusters and the corresponding centroids
     """
     # Set random initial medoids.
     np.random.seed(0)
     initial_medoids = np.random.randint(len(points), size=n_clusters)
 
     # Create instance of K-Medoids algorithm.
-    # if use_labels:
-    #     kmedoids_instance = kmedoids(points, initial_medoids)
-    # else:
-    kmedoids_instance = kmedoids(points, initial_medoids)
+    if use_labels:
+        kmedoids_instance = kmedoids(points, initial_medoids)
+    else:
+        kmedoids_instance = kmedoids(points.drop(columns=["labels", "predictions", "idx"]), initial_medoids)
 
     # Run cluster analysis and obtain results.
     kmedoids_instance.process()

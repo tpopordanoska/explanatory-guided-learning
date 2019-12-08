@@ -8,7 +8,7 @@ from .experiment import Experiment
 
 
 class Synthetic(Experiment):
-    def __init__(self, balanced_db=True, tiny_clusters=True, rng=0):
+    def __init__(self, rng, balanced_db=True, tiny_clusters=True):
 
         # Generate mock data with balanced number of positive and negative examples
         X_pos, y_pos = self.generate_positive(1, 13, 8)
@@ -48,9 +48,11 @@ class Synthetic(Experiment):
     @staticmethod
     def generate_positive(start, end, skip):
         """
-        Generate points that lie on a grid
+        Generate points that lie on a grid.
 
-        :param axis: How many numbers to be generated on each axis
+        :param start: The start point of the interval for generating points
+        :param end: The end point of the interval for generating points
+        :param skip: How far apart the points should be on the grid
 
         :return: Coordinates of the generated points and an array of ones as their labels
         """
@@ -60,16 +62,19 @@ class Synthetic(Experiment):
         yp = np.ones((len(pointsp)), dtype=int)
         return pointsp, yp
 
-    def generate_negative(self, axis, how_many, rng=0, centers = None, cluster_std = None):
+    def generate_negative(self, axis, how_many, rng, centers=None, cluster_std=None):
         """
-        Generate randomly distributed points
+        Generate randomly distributed points.
 
         :param axis: Specifies the length of the axis
         :param how_many: How many points to be generated
+        :param rng: RandomState object
+        :param centers: The centers of the Gaussian blobs (the positive points)
+        :param cluster_std: The standard deviation for each of the Gaussian blobs
 
         :return: Coordinates of the generated points and an array of zeros as their labels
         """
-        pointsn = rng.rand(how_many, 2) * (axis)
+        pointsn = rng.rand(how_many, 2) * axis
         if centers is not None and cluster_std is not None:
           for i, center in enumerate(centers):
             distances = [distance.euclidean(center, point) for point in pointsn]
@@ -79,18 +84,3 @@ class Synthetic(Experiment):
         yn = np.zeros((len(pointsn)), dtype=int)
         return pointsn, yn
 
-    def generate_points(self, axis, how_many):
-        """
-        Generate points of class 1 that lie on a grid and points of class 0 that are randomly distributed
-
-        :param axis: the length of the axis
-        :param how_many: how many points of class 0 to be generated
-
-        :return: coordinates of the generated points and an array with the corresponding labels
-        """
-        pointsp, yp = self.generate_positive(axis)
-        pointsn, yn = self.generate_negative(axis, how_many)
-
-        X = np.concatenate((pointsp, pointsn), axis=0)
-        y = np.concatenate((yp, yn), axis=0)
-        return X, y
