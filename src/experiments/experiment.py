@@ -1,12 +1,14 @@
-import numpy as np
 import os
+
+import numpy as np
 import requests
-from sklearn.utils import check_random_state
 from sklearn.model_selection import StratifiedKFold
+from sklearn.utils import check_random_state
 
 
 class Experiment:
-    def __init__(self, X, y, feature_names, name, prop_known=0.2, metric="f1", rng=None):
+    def __init__(self, model, X, y, feature_names, name, prop_known=0.1, metric="f1", rng=None):
+        self.model = model
         self.X, self.y = X, y
         self.feature_names = feature_names
         self.name = name
@@ -48,6 +50,16 @@ class Experiment:
             # Split the non-test set into known set and training set
             n_known = max(int(len(nontest_indices) * prop_known), 5)
             known_indices = self.rng.choice(nontest_indices, size=n_known)
+            # Check if each class has at least 2 examples and if not, generate new random indices
+            _, counts = np.unique(self.y[known_indices], return_counts=True)
+            num_classes = len(np.unique(self.y))
+            if not (len(counts) == num_classes and all(i > 1 for i in counts)):
+                new_seed = 1
+                while not (len(counts) == num_classes and all(i > 1 for i in counts)):
+                    np.random.seed(new_seed)
+                    new_seed += 1
+                    known_indices = np.random.choice(nontest_indices, size=n_known)
+                    _, counts = np.unique(self.y[known_indices], return_counts=True)
             tr_indices = np.array(list(set(nontest_indices) - set(known_indices)))
 
             assert len(set(known_indices) & set(tr_indices)) == 0

@@ -1,19 +1,18 @@
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.pipeline import FeatureUnion
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils import check_random_state
 
+from src.learners import *
 from .experiment import Experiment
 
 
 class Adult(Experiment):
 
     def __init__(self, rng):
-
-        rng = check_random_state(rng)
 
         urls = ["http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
                 "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names",
@@ -24,7 +23,7 @@ class Adult(Experiment):
                    "relationship", "race", "sex", "capital-gain", "capital-loss", "hours-per-week", "native-country", "income"]
         train_data = pd.read_csv('data/adult.data', names=columns, sep=' *, *', na_values='?')
         test_data = pd.read_csv('data/adult.test', names=columns, sep=' *, *', skiprows=1, na_values='?')
-        dataset = pd.concat([train_data, test_data])
+        dataset = train_data # pd.concat([train_data, test_data])
 
         num_pipeline = Pipeline(steps=[
             ("num_attr_selector", ColumnsSelector(type='int64')),
@@ -47,9 +46,15 @@ class Adult(Experiment):
         # pass the data through the full_pipeline
         X_processed = full_pipeline.fit_transform(X)
 
+        sampled_idx, _ = list(StratifiedShuffleSplit(n_splits=2, train_size=0.1, random_state=0).split(X_processed, y))[0]
+        X_processed, y = X_processed[sampled_idx], y[sampled_idx]
+
         column_names = ['Col_' + str(i) for i in range(0, X_processed.shape[1])]
 
-        super().__init__(X_processed, y, feature_names=column_names, name="Adult", prop_known=0.01, rng=rng)
+        model = SVM(name='svm_rbf', rng=rng, gamma=1, C=1e2)
+
+        #After resampling with train_size = 0.1: total 3256 examples, 784 1s, 2472 0s
+        super().__init__(model, X_processed, y, feature_names=column_names, name="Adult", prop_known=0.01, rng=rng)
 
 
 class ColumnsSelector(BaseEstimator, TransformerMixin):

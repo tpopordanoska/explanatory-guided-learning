@@ -10,10 +10,13 @@ class Learner:
     Class containing multiple sklearn models
     """
 
-    def __init__(self, model_name="", rng=None):
+    def __init__(self, name="", rng=None):
         self._model = None
-        self.model_name = model_name
+        self.name = name
         self.rng = check_random_state(rng)
+
+    def get_params(self, deep=True):
+        return self._model.get_params()
 
     def fit(self, X, y):
         self._model.fit(X, y)
@@ -29,21 +32,21 @@ class Learner:
 
 
 class SVM(Learner):
-    def __init__(self, model_name='svm', rng=None):
-        super().__init__(model_name, rng)
+    def __init__(self, name='svm', rng=None, gamma=1, C=1e2):
+        super().__init__(name, rng)
 
         model = None
-        if model_name == 'svm':
+        if name == 'svm':
             model = LinearSVC(
                 penalty='l2',
                 loss='hinge',
                 multi_class='ovr',
                 random_state=self.rng)
 
-        elif model_name == 'svm_rbf':
-            model = SVC(gamma=1, C=1e2, random_state=self.rng)
+        elif name == 'svm_rbf':
+            model = SVC(gamma=gamma, C=C, random_state=self.rng)
 
-        elif model_name == 'l1svm':
+        elif name == 'l1svm':
             model = LinearSVC(
                 penalty='l1',
                 loss='squared_hinge',
@@ -55,8 +58,8 @@ class SVM(Learner):
 
 
 class LogRegression(Learner):
-    def __init__(self, model_name='Logistic Regression', rng=None):
-        super().__init__(model_name, rng)
+    def __init__(self, name='Logistic Regression', rng=None):
+        super().__init__(name, rng)
 
         self._model = LogisticRegression(
             penalty='l2',
@@ -66,8 +69,8 @@ class LogRegression(Learner):
 
 
 class GradientBoosting(Learner):
-    def __init__(self, model_name="Gradient Boosting", rng=None):
-        super().__init__(model_name, rng)
+    def __init__(self, name="Gradient Boosting", rng=None):
+        super().__init__(name, rng)
 
         kwargs = {
             'n_estimators': 1200,

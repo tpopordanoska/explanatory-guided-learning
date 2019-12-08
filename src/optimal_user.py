@@ -24,7 +24,7 @@ class Annotator:
 
         # Softmax
         logits = [len(x) for x in lookup.values()]
-        exps = [np.exp(i * theta) for i in logits]
+        exps = [np.exp(i * theta - max(logits)) for i in logits]
         softmax = [j / sum(exps) for j in exps]
         selected_cluster_key = rng.choice(list(lookup.keys()), p=softmax)
         selected_cluster_value = lookup.get(selected_cluster_key)

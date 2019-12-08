@@ -32,8 +32,8 @@ def run_kmeans(points, n_clusters=2, use_labels="True"):
 def create_meshgrid(points, kmedoids_instance):
     # Plot the decision boundary
     h = .02
-    x_min, x_max = points[:, 0].min() - 1, points[:, 0].max() + 1
-    y_min, y_max = points[:, 1].min() - 1, points[:, 1].max() + 1
+    x_min, x_max = points[:, 0].min() - 0.1, points[:, 0].max() + 0.1
+    y_min, y_max = points[:, 1].min() - 0.1, points[:, 1].max() + 0.1
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
     # Obtain labels for each point in mesh. Use last trained model.
     Z = kmedoids_instance.predict((np.c_[xx.ravel(), yy.ravel()]))
@@ -41,7 +41,7 @@ def create_meshgrid(points, kmedoids_instance):
     return Z.reshape(xx.shape), xx, yy
 
 
-def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", rng=0, path=None, method=""):
+def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", rng=0, path=None, plots_off=True):
     """
     Run kmedoids algorithm on the given points with the given number of clusters and plot the centroids.
 
@@ -69,7 +69,7 @@ def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", rng=
     centroids = points[centroids_idx]
 
     # If the problem is two dimensional (the third column are the labels) then plot it
-    if points.shape[1] == 3:
+    if not plots_off:
         # Plot the decision boundary
         Z, xx, yy = create_meshgrid(points, kmedoids_instance)
 
@@ -89,7 +89,7 @@ def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", rng=
                     color='red', zorder=10)
         plt.title("K-Medoids")
         if path:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " K-medoids " + method + ".png")
+            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " K-medoids.png")
         else:
             plt.show()
         plt.close()
