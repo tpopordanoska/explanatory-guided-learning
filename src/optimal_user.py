@@ -3,9 +3,6 @@ from scipy.spatial import distance
 
 
 class Annotator:
-    # The Annotator should know the training data data (points with x,y coordinates) and their labels
-    def __init__(self, points):
-        self.points = points
 
     def select_from_worst_cluster(self, pd_points, clusters, theta=1, rng=0):
         """
@@ -17,8 +14,9 @@ class Annotator:
         """
         # Find all the wrongly classified examples (model predictions vs true labels)
         wrong_points, clusters_lookup, lookup = self.find_wrong_points(pd_points, clusters)
-        if len(wrong_points) == 0:
-            return [], None, []
+        print("Number of wrong points: ", len(wrong_points))
+        if not len(wrong_points):
+            return [], None
         # Find the cluster with the most wrongly classified examples
         # max_key, max_value = max(lookup.items(), key=lambda x: len(x[1]))
 
@@ -32,13 +30,15 @@ class Annotator:
         # Find the centroid of that custer, it's the first element in the list
         max_centroid = clusters_lookup[selected_cluster_key][0]
         # Drop the labels and predictions columns to measure distance
-        pd_points_features = pd_points.drop(columns=["labels", "predictions"])
+        pd_points_features = pd_points.copy()
+        pd_points_features = pd_points_features.drop(columns=["labels", "predictions", "idx"])
         # Find the element with min proximity to the centroid found with k-medoids for each wrongly classified
         # point in that cluster
-        closest_wrong_idx = min(selected_cluster_value, key=lambda x: distance.euclidean(pd_points_features.iloc[x],
-                                                                            pd_points_features.iloc[max_centroid]))
+        closest_wrong_idx = min(selected_cluster_value, key=lambda x: distance.euclidean(
+            pd_points_features.iloc[x], pd_points_features.iloc[max_centroid]))
 
-        return wrong_points, closest_wrong_idx, pd_points.iloc[closest_wrong_idx]
+        query_idx = int(pd_points.iloc[closest_wrong_idx].idx)
+        return wrong_points, query_idx
 
     def select_closest(self, pd_points, clusters):
         wrong_points, clusters_lookup, lookup = self.find_wrong_points(pd_points, clusters)

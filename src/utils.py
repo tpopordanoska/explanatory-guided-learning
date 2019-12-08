@@ -116,9 +116,10 @@ def plot_acc(scores, stds, f1_score_passive, labels, title="", path=None):
         plt.plot(x, score, label=key)
         plt.fill_between(x, score - stds[key], score + stds[key], alpha=0.25, linewidth=0)
 
+    x = np.arange(len(max(scores.values(), key=lambda value: len(value))))
     passive_mean = np.array([f1_score_passive.mean() for i in range(len(x))])
     passive_std = np.array([f1_score_passive.std() * 2 for i in range(len(x))])
-    x = np.arange(len(max(scores.values(), key=lambda value: len(value))))
+
     plt.plot(x, passive_mean, label="Passive setting")
     plt.fill_between(x, passive_mean - passive_std, passive_mean + passive_std, alpha=0.25, linewidth=0)
 
@@ -133,20 +134,20 @@ def plot_acc(scores, stds, f1_score_passive, labels, title="", path=None):
         plt.show()
     plt.close()
 
-
-def least_confident_idx(model, examples):
+def least_confident_idx(**kwargs):
     """
     Get the index of the example closest to the decision boundary.
 
-    :param model: The trained model
-    :param examples: The data points
+    :param kwargs: Keyword arguments
 
-    :return: The index of the least confident example
+    :return: The index (in X) of the least confident example
     """
-    margins = np.abs(model.decision_function(examples))
+    experiment = kwargs.pop("experiment")
+    train_idx = kwargs.pop("train_idx")
+    margins = np.abs(experiment.model.decision_function(experiment.X[train_idx]))
     if len(margins) == 0:
         return None
-    return np.argmin(margins)
+    return train_idx[np.argmin(margins)]
 
 
 def select_by_coordinates(x, y, data):
@@ -161,7 +162,6 @@ def select_by_coordinates(x, y, data):
     # TODO: take care of element not found and fix [][]
     return [np.where((data[:, 0] == x) & (data[:, 1] == y))[0][0]]
 
-
 def select_random(data, rng=0):
     """
     Get a random element from the given data.
@@ -171,8 +171,7 @@ def select_random(data, rng=0):
 
     :return: A random element from the data
     """
-    rng = check_random_state(rng)
-    return data.iloc[rng.choice(data.shape[0], replace=False)]
+    return rng.choice(data)
 
 
 def concatenate_data(X_train, y_train, X_unlabeled, y_unlabeled, y_pred):

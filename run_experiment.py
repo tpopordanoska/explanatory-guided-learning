@@ -57,15 +57,21 @@ for seed in seeds:
     # experiment = EXPERIMENTS["banknote-auth"](rng)
     # experiment = EXPERIMENTS["synthetic"](balanced_db, tiny_clusters, rng)
     # experiment = EXPERIMENTS["adult"](rng)
-    plot_points(experiment.X, experiment.y, "Initial points", path)
+    # plot_points(experiment.X, experiment.y, "Initial points", path)
 
     learning_loop = ActiveLearningLoop(experiment, n_clusters, max_iter, path, file, plots_off)
 
     # Split the data into labeled and unlabeled
     folds = experiment.split(prop_known=experiment.prop_known, n_splits=n_folds)
     for k, (known_idx, train_idx, test_idx) in enumerate(folds):
+        # Remove duplicates
+        known_idx, train_idx, test_idx = np.unique(known_idx), np.unique(train_idx), np.unique(test_idx)
         file.write('fold {} : #known {}, #train {}, #test {} \n'
                    .format(k + 1, len(known_idx), len(train_idx), len(test_idx)))
+        _, counts_known = np.unique(experiment.y[known_idx], return_counts=True)
+        _, counts_train = np.unique(experiment.y[train_idx], return_counts=True)
+        file.write("Known bincount: {}\n".format(counts_known))
+        file.write("Train bincount: {}\n".format(counts_train))
 
         for method in methods:
             file.write("Running model: {} Method: {} \n".format(experiment.model.name, method))

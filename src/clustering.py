@@ -52,7 +52,6 @@ def run_kmedoids(points, n_clusters, other_points=None, use_labels="False", rng=
 
     """
     # Set random initial medoids.
-    rng = check_random_state(rng)
     np.random.seed(0)
     initial_medoids = np.random.randint(len(points), size=n_clusters)
 
