@@ -26,4 +26,4 @@ class HabermansSurvival(Experiment):
 
         model = SVM(name='svm_rbf', rng=rng, gamma=1, C=1e2)
 
-        super().__init__(model, X_processed, y, feature_names=list(X.columns.values), name="Banknote Auth", prop_known=0.01, rng=rng)
+        super().__init__(model, X_processed, y, feature_names=list(X.columns.values), name="Haberman's Survival", prop_known=0.01, rng=rng)
