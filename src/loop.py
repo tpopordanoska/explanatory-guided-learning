@@ -11,17 +11,14 @@ import pandas as pd
 METHODS = {
     "al_least_confident": lambda **kwargs: least_confident_idx(**kwargs),
     "sq_random": lambda **kwargs: search_query(**kwargs),
-    "optimal_user_t1": lambda **kwargs: optimal_user(**kwargs, theta=0.1),
-    "optimal_user_t2": lambda **kwargs: optimal_user(**kwargs, theta=1),
-    "optimal_user_t3": lambda **kwargs: optimal_user(**kwargs, theta=3)
+    "optimal_user": lambda **kwargs: optimal_user(**kwargs)
 }
 
 
-def optimal_user(theta, **kwargs):
+def optimal_user(**kwargs):
     """
     Find index of the query to be labeled using the optimal_user strategy.
 
-    :param theta: Parameter for the softmax function
     :param kwargs: Keyword arguments
 
     :return: The index of the query (in X) to be labeled
@@ -33,6 +30,10 @@ def optimal_user(theta, **kwargs):
     no_clusters = kwargs.pop("no_clusters")
     path = kwargs.pop("path")
     plots_off = kwargs.pop("plots_off")
+    theta = kwargs.pop("theta")
+    file = kwargs.pop("file")
+    use_labels = kwargs.pop("use_labels")
+    use_weights = kwargs.pop("use_weights")
     rng = experiment.rng
 
     known_train_idx = np.concatenate((known_idx, train_idx), axis=0)
@@ -44,11 +45,13 @@ def optimal_user(theta, **kwargs):
     known_train_pd["idx"] = known_train_idx
 
     # Find the clusters and their centroids
-    clusters, centroids = run_kmedoids(kmedoids_pd.to_numpy(), no_clusters, path=path, plots_off=plots_off)
+    clusters, centroids = run_kmedoids(kmedoids_pd, n_clusters=no_clusters, use_labels=use_labels,
+                                       use_weights=use_weights, path=path, plots_off=plots_off)
     # Find the index of the query to be labeled
-    wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, theta=theta, rng=rng)
+    wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, theta=theta, rng=rng, file=file)
     # Plot the wrong points
-    run_kmedoids(kmedoids_pd.to_numpy(), no_clusters, other_points=wrong_points, path=path, plots_off=plots_off)
+    run_kmedoids(kmedoids_pd, n_clusters=no_clusters, other_points=wrong_points, use_labels=use_labels,
+                 use_weights=use_weights, path=path, plots_off=plots_off)
 
     return query_idx
 
@@ -81,13 +84,16 @@ def search_query(**kwargs):
 
 class ActiveLearningLoop:
 
-    def __init__(self, experiment, no_clusters, max_iter, path, file, plots_off):
+    def __init__(self, experiment, no_clusters, max_iter, path, file, plots_off, thetas, use_weights, use_labels):
         self.experiment = experiment
         self.no_clusters = no_clusters
         self.max_iter = max_iter
         self.path = path
         self.file = file
         self.plots_off = plots_off
+        self.thetas = thetas
+        self.use_weights = use_weights
+        self.use_labels = use_labels
 
     def move(self, known_idx, train_idx, query_idx):
         """
@@ -200,11 +206,15 @@ class ActiveLearningLoop:
 
         :return: List of accuracy scores on train and test set
         """
-
         experiment = self.experiment
         if isinstance(experiment, Synthetic):
             plot_points(experiment.X[known_idx], experiment.y[known_idx], "The known points", self.path)
             plot_points(experiment.X[test_idx], experiment.y[test_idx], "The test points", self.path)
+
+        theta = -1
+        if "optimal_user" in method:
+            theta = float(method.split("_")[2])
+            method = "optimal_user"
 
         # 1. Train a model
         y_pred, y_pred_test, scores, test_scores = self.train_and_get_acc(known_idx, train_idx, test_idx, [], [])
@@ -219,9 +229,13 @@ class ActiveLearningLoop:
                                         known_idx=known_idx,
                                         train_idx=train_idx,
                                         y_pred=y_pred,
+                                        theta=theta,
                                         no_clusters=self.no_clusters,
                                         path=self.path,
-                                        plots_off=self.plots_off)
+                                        file=self.file,
+                                        plots_off=self.plots_off,
+                                        use_weights=self.use_weights,
+                                        use_labels=self.use_labels)
 
             if query_idx is None:
                 break
