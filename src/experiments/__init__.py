@@ -4,6 +4,9 @@ from .banknote_auth import *
 from . import synthethic
 from .synthethic import *
 
+from . import synthetic_simple
+from .synthetic_simple import *
+
 from . import adult
 from .adult import *
 
