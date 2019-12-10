@@ -99,9 +99,9 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
                    aspect='auto', origin='lower')
 
         if other_points is not None:
-            plt.scatter(other_points.x, other_points.y, c=other_points.predictions, marker='o', s=30, edgecolor='k')
+            plt.scatter(other_points.x, other_points.y, c=other_points.predictions, marker='o', s=30)
         else:
-            plt.scatter(points[:, 0], points[:, 1], c=points[:, 2], marker='o', s=30, edgecolor='k')
+            plt.scatter(points[:, 0], points[:, 1], c=points[:, 2], marker='o', s=30)
         # Plot the centroids
 
         plt.scatter(centroids[:, 0], centroids[:, 1],

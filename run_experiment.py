@@ -36,18 +36,18 @@ def get_passive_f1(experiment, file):
 # General parameters
 seeds=[0]
 # seeds = [0, 25, 42, 64, 100]
-max_iter = 100
+max_iter = 150
 n_folds = 5
-n_clusters = 40
+n_clusters = 10
 plots_off = True
 methods = ["al_least_confident", "sq_random"]
-thetas = [5, 1, 0.1, 0.01, 0.001]
+thetas = [2, 1, 0.1, 0.01, 0.001]
 for theta in thetas:
     methods.append("optimal_user_{}".format(theta))
 
 # Parameters for the clustering: if use_weights is true, use_labels must be true
-use_labels = False
-use_weights = False
+use_labels = True
+use_weights = True
 
 # Parameters for the synthetic experiment
 balanced_db = True
@@ -65,10 +65,10 @@ for seed in seeds:
     # experiment = EXPERIMENTS["habermans-survival"](rng)
     # experiment = EXPERIMENTS["breast-cancer"](rng)
     # experiment = EXPERIMENTS["banknote-auth"](rng)
-    experiment = EXPERIMENTS["synthetic-simple"](balanced_db, tiny_clusters, rng)
-    experiment = EXPERIMENTS["synthetic"](balanced_db, tiny_clusters, rng)
-    # experiment = EXPERIMENTS["adult"](rng)
-    # plot_points(experiment.X, experiment.y, "Initial points", path)
+    # experiment = EXPERIMENTS["synthetic-simple"](balanced_db, tiny_clusters, rng)
+    # experiment = EXPERIMENTS["synthetic"](balanced_db, tiny_clusters, rng)
+    experiment = EXPERIMENTS["adult"](rng)
+    plot_points(experiment.X, experiment.y, "Initial points", path)
 
     learning_loop = ActiveLearningLoop(experiment, n_clusters, max_iter, path, file, plots_off, thetas,
                                        use_weights=use_weights, use_labels=use_labels)

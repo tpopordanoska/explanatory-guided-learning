@@ -6,7 +6,7 @@ class Annotator:
     """
     Class containing methods for the optimal_user query selection strategy.
     """
-    def select_from_worst_cluster(self, pd_points, clusters, theta, rng):
+    def select_from_worst_cluster(self, pd_points, clusters, theta, rng, file=None):
         """
         Select index of the point to be labeled from the cluster containing largest number of wrong points.
 
@@ -31,6 +31,10 @@ class Annotator:
         softmax = [j / sum(exps) for j in exps]
         selected_cluster_key = rng.choice(list(lookup.keys()), p=softmax)
         selected_cluster_value = lookup.get(selected_cluster_key)
+        if file is not None:
+            file.write("Logits: {}, exps: {}, softmax: {}\n".format(logits, exps, softmax))
+            file.write("Cluster lookup keys: {}\n".format(lookup.keys()))
+            file.write("Selected_cluster_key: {}, value: {}\n".format(selected_cluster_key, selected_cluster_value))
 
         # Find the centroid of that custer, it's the first element in the list
         max_centroid = clusters_lookup[selected_cluster_key][0]

@@ -10,6 +10,8 @@ from .experiment import Experiment
 class Synthetic(Experiment):
     def __init__(self, rng, balanced_db=True, tiny_clusters=True):
 
+        rng = check_random_state(rng)
+
         # Generate mock data with balanced number of positive and negative examples
         X_pos, y_pos = self.generate_positive(1, 13, 8)
 

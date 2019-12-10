@@ -50,8 +50,9 @@ def optimal_user(**kwargs):
     # Find the index of the query to be labeled
     wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, theta=theta, rng=rng, file=file)
     # Plot the wrong points
-    run_kmedoids(kmedoids_pd, n_clusters=no_clusters, other_points=wrong_points, use_labels=use_labels,
-                 use_weights=use_weights, path=path, plots_off=plots_off)
+    if len(wrong_points):
+        run_kmedoids(kmedoids_pd, n_clusters=no_clusters, other_points=wrong_points, use_labels=use_labels,
+                     use_weights=use_weights, path=path, plots_off=plots_off)
 
     return query_idx
 
@@ -207,7 +208,7 @@ class ActiveLearningLoop:
         :return: List of accuracy scores on train and test set
         """
         experiment = self.experiment
-        if isinstance(experiment, Synthetic):
+        if isinstance(experiment, SyntheticSimple):
             plot_points(experiment.X[known_idx], experiment.y[known_idx], "The known points", self.path)
             plot_points(experiment.X[test_idx], experiment.y[test_idx], "The test points", self.path)
 
@@ -220,6 +221,7 @@ class ActiveLearningLoop:
         y_pred, y_pred_test, scores, test_scores = self.train_and_get_acc(known_idx, train_idx, test_idx, [], [])
 
         for iteration in range(self.max_iter):
+            self.file.write("Iteration: {}\n".format(iteration))
             # If we have selected all instances in the train dataset
             if len(train_idx) <= 1:
                 break
@@ -248,7 +250,7 @@ class ActiveLearningLoop:
                                       experiment.X[train_idx],
                                       experiment.y[train_idx],
                                       least_conf=experiment.X[query_idx],
-                                      title="{} {}".format(experiment.model.name, method),
+                                      title="Iteration: {} {} {}".format(iteration, experiment.model.name, method),
                                       path=self.path)
 
             # 3. Query an "oracle" and add the labeled example to the training set
@@ -265,7 +267,7 @@ class ActiveLearningLoop:
                                   experiment.X[train_idx],
                                   experiment.y[train_idx],
                                   least_conf=experiment.X[query_idx],
-                                  title="{} {}".format(experiment.model.name, method),
+                                  title="Iteration: {} {} {}".format(iteration, experiment.model.name, method),
                                   path=self.path)
             # Plot the predictions
             plot_decision_surface(experiment.model,

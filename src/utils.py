@@ -38,7 +38,7 @@ def create_folders():
 
 
 def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled, y_pred=None,
-                          least_conf=None, soft=True, title = "", path=None):
+                          least_conf=None, soft=True, title="", path=None):
     """
     Plots the decision surface of the model together with the data points.
 
@@ -71,10 +71,10 @@ def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled,
     plt.contourf(xx, yy, Z, cmap=plt.cm.coolwarm, alpha=0.8)
 
     if y_pred is not None:
-        plt.scatter(X_unlabeled[:, 0], X_unlabeled[:, 1], c=y_pred, cmap=plt.cm.coolwarm, s=15)
+        plt.scatter(X_unlabeled[:, 0], X_unlabeled[:, 1], c=y_pred, cmap=plt.cm.coolwarm, s=25)
     else:
-        plt.scatter(X_unlabeled[:, 0], X_unlabeled[:, 1], c=y_unlabeled, cmap=plt.cm.coolwarm, s=15)
-        plt.scatter(X_labeled[:, 0], X_labeled[:, 1], c=y_labeled, cmap=plt.cm.coolwarm, s=15, linewidths=6)
+        plt.scatter(X_unlabeled[:, 0], X_unlabeled[:, 1], c=y_unlabeled, cmap=plt.cm.coolwarm, s=25)
+        plt.scatter(X_labeled[:, 0], X_labeled[:, 1], c=y_labeled, cmap=plt.cm.coolwarm, s=25, linewidths=6)
 
     if least_conf is not None:
         plt.scatter(least_conf[0], least_conf[1], marker='x', s=69, linewidths=8, color='green', zorder=10)
@@ -99,7 +99,7 @@ def plot_points(X, y, title="", path=None):
 
     """
     figure(num=None, figsize=(16, 14), facecolor='w', edgecolor='k')
-    plt.scatter(X[:,0], X[:,1], c= y, marker='o', s=35, edgecolor='k', cmap=plt.cm.coolwarm)
+    plt.scatter(X[:,0], X[:,1], c= y, marker='o', s=45, cmap=plt.cm.coolwarm)
     # set axes range
     plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
     plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
