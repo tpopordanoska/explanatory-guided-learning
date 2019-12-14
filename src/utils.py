@@ -2,9 +2,10 @@ import os
 from datetime import datetime
 
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.pyplot import figure
-from sklearn.utils import check_random_state
+
+from .experiments import *
+from .normalizer import *
 
 
 def create_folders():
@@ -13,18 +14,18 @@ def create_folders():
 
     :return: The path to the created folder
     """
-    path_results = os.getcwd() + "\\results"
+    path_results = "{}\\results".format(os.getcwd())
     try:
         os.mkdir(path_results)
     except FileExistsError:
-        print("Directory ", path_results, " already exists")
+        print("Directory {} already exists".format(path_results))
     except OSError:
-        print("Creation of the directory %s failed" % path_results)
+        print("Creation of the directory {} failed".format(path_results))
     else:
-        print("Successfully created the directory %s " % path_results)
+        print("Successfully created the directory {} ".format(path_results))
 
     # Create a separate folder for each time running the experiment
-    path = path_results + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')
+    path = "{}\\{}". format(path_results, datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'))
     try:
         os.mkdir(path)
     except FileExistsError:
@@ -37,32 +38,61 @@ def create_folders():
     return path
 
 
-def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled, y_pred=None,
-                          least_conf=None, soft=True, title="", path=None):
+def create_experiment_folder(path, experiment, model):
+    """
+    Create folder for storing results for the given experiment and model
+
+    :param path: Path to the folder created when the script is run
+    :param experiment: The name of the experiment being performed
+    :return: model: The name of the model currently running
+    """
+    path_experiment = "{}\\{}".format(path, experiment)
+    try:
+        os.mkdir(path_experiment)
+    except OSError:
+        print("Creation of the directory %s failed" % path_experiment)
+
+    path_model = "{}\\{} {}".format(path_experiment, model, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    try:
+        os.mkdir(path_model)
+    except OSError:
+        print("Creation of the directory %s failed" % path_model)
+
+    return path_model
+
+
+def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pred=None, soft=True, title="", path=None):
     """
     Plots the decision surface of the model together with the data points.
 
-    :param model: The trained model
-    :param X_labeled: The labeled data points used for training
-    :param y_labeled: The labels for the training data points
-    :param X_unlabeled: The unlabeled data points
-    :param y_unlabeled: The true labels for the "unlabeled"
+    :param experiment: The experiment
+    :param known_idx: The indexes of the known points
+    :param train_idx: The indexes of the training points
+    :param query_idx: The index of chosen least confident example
     :param y_pred: The predictions of the model
-    :param least_conf: The chosen least confident example
     :param soft: Whether to plot  kernel-like boundary
     :param title: The title of the plot
     :param path: The path of the folder where the plot will be saved
 
     """
+    X_known, y_known = experiment.X[known_idx], experiment.y[known_idx]
+    X_train, y_train = experiment.X[train_idx], experiment.y[train_idx]
+    X_known_norm, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
+    model = experiment.model
+
+    figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
     # create a mesh to plot in
-    h = .02  # step size in the mesh
-    X = np.concatenate((X_labeled, X_unlabeled), axis=0)
-    x_min, x_max = X[:, 0].min() - 0.1, X[:, 0].max() + 0.1
-    y_min, y_max = X[:, 1].min() - 0.1, X[:, 1].max() + 0.1
+    h = 0.05  # step size in the mesh
+
+    x_min, x_max = X_known_norm[:, 0].min() - 1, X_known_norm[:, 0].max() + 1
+    y_min, y_max = X_known_norm[:, 1].min() - 1, X_known_norm[:, 1].max() + 1
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
 
-    if (soft):
-        Z = model.decision_function(np.c_[xx.ravel(), yy.ravel()])
+    if soft:
+        if hasattr(model._model , "decision_function"):
+            Z = model.decision_function(np.c_[xx.ravel(), yy.ravel()])
+        else:
+            Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
     else :
         Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
 
@@ -71,20 +101,27 @@ def plot_decision_surface(model, X_labeled, y_labeled, X_unlabeled, y_unlabeled,
     plt.contourf(xx, yy, Z, cmap=plt.cm.coolwarm, alpha=0.8)
 
     if y_pred is not None:
-        plt.scatter(X_unlabeled[:, 0], X_unlabeled[:, 1], c=y_pred, cmap=plt.cm.coolwarm, s=25)
+        plt.scatter(X_train_norm[:, 0], X_train_norm[:, 1], c=y_pred, cmap=plt.cm.coolwarm, s=25)
     else:
-        plt.scatter(X_unlabeled[:, 0], X_unlabeled[:, 1], c=y_unlabeled, cmap=plt.cm.coolwarm, s=25)
-        plt.scatter(X_labeled[:, 0], X_labeled[:, 1], c=y_labeled, cmap=plt.cm.coolwarm, s=25, linewidths=6)
+        plt.scatter(X_train_norm[:, 0], X_train_norm[:, 1], c=y_train, cmap=plt.cm.coolwarm, s=25)
+        plt.scatter(X_known_norm[:, 0], X_known_norm[:, 1], c=y_known, cmap=plt.cm.coolwarm, s=25, linewidths=6)
 
-    if least_conf is not None:
-        plt.scatter(least_conf[0], least_conf[1], marker='x', s=69, linewidths=8, color='green', zorder=10)
+    if query_idx is not None:
+        least_conf = experiment.X[query_idx]
+        idx_array = np.where((X_train[:, 0] == least_conf[0]) & (X_train[:, 1] == least_conf[1]))[0]
+        if len(idx_array):
+            idx_in_train = idx_array[0]
+            least_conf_norm = X_train_norm[idx_in_train]
+            plt.scatter(least_conf_norm[0], least_conf_norm[1], marker='x', s=500, linewidths=3, color='green')
     plt.title(title)
+    # plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
+    # plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
+    plt.xlim(-0.2, 1.2)
+    plt.ylim(-0.2, 1.2)
     if path:
         plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
     else:
         plt.show()
-    plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
-    plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
     plt.close()
 
 
@@ -98,14 +135,16 @@ def plot_points(X, y, title="", path=None):
     :param path: The path of the folder where the plot will be saved
 
     """
-    figure(num=None, figsize=(16, 14), facecolor='w', edgecolor='k')
-    plt.scatter(X[:,0], X[:,1], c= y, marker='o', s=45, cmap=plt.cm.coolwarm)
+    figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+    plt.scatter(X[:, 0], X[:, 1], c=y, marker='o', s=45, cmap=plt.cm.coolwarm)
     # set axes range
-    plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
-    plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
+    plt.xlim(-0.2, 1.2)
+    plt.ylim(-0.2, 1.2)
+    # plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
+    # plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
     plt.title(title)
     if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f')+ "-" + title + '.png')
+        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
     else:
         plt.show()
     plt.close()
@@ -155,12 +194,30 @@ def least_confident_idx(**kwargs):
     :return: The index (in X) of the least confident example
     """
     experiment = kwargs.pop("experiment")
+    known_idx = kwargs.pop("known_idx")
     train_idx = kwargs.pop("train_idx")
-    margins = np.abs(experiment.model.decision_function(experiment.X[train_idx]))
+    X_known = get_from_indexes(experiment.X, known_idx)
+    X_train = get_from_indexes(experiment.X, train_idx)
+
+    _, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
+
+    if hasattr(experiment.model._model, "decision_function"):
+        margins = np.abs(experiment.model.decision_function(X_train_norm))
+    elif hasattr(experiment.model._model, "predict_proba"):
+        probs = experiment.model.predict_proba(X_train_norm)
+        margins = np.sum(probs * np.log(probs), axis=1).ravel()
+    else:
+        raise AttributeError("Model with either decision_function or predict_proba method")
+
     if len(margins) == 0:
         return None
     return train_idx[np.argmin(margins)]
 
+
+def get_from_indexes(X, indexes):
+    if isinstance(X, pd.DataFrame):
+        return X.iloc[indexes]
+    return X[indexes]
 
 def select_by_coordinates(x, y, data):
     """

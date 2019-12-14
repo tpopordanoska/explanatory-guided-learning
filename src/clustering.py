@@ -29,24 +29,21 @@ def run_kmeans(points, n_clusters=2, use_labels="True"):
     plt.show()
 
 
-def create_meshgrid(points, kmedoids_instance):
+def create_meshgrid(points):
     """
     Create the mesh grid to plot in.
 
     :param points: The dataset
-    :param kmedoids_instance: Kmedoids instance
 
     :return: The mesh grid to plot in
     """
     # Plot the decision boundary
-    h = .02
-    x_min, x_max = points[:, 0].min() - 0.1, points[:, 0].max() + 0.1
-    y_min, y_max = points[:, 1].min() - 0.1, points[:, 1].max() + 0.1
+    h = 0.1
+    x_min, x_max = points[:, 0].min() - 1, points[:, 0].max() + 1
+    y_min, y_max = points[:, 1].min() - 1, points[:, 1].max() + 1
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-    # Obtain labels for each point in mesh. Use last trained model.
-    Z = kmedoids_instance.predict((np.c_[xx.ravel(), yy.ravel()]))
-    # Put the result into a color plot
-    return Z.reshape(xx.shape), xx, yy
+
+    return xx, yy
 
 
 def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", use_weights="False", path=None, plots_off=True):
@@ -71,7 +68,7 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
         weighted_points_pd = points_pd.copy()
         weighted_points_pd["predictions"] = points_pd["predictions"] * (len(points_pd.columns) - 1)
         points = weighted_points_pd.to_numpy()
-    # If we want to use the labels, but not weight them
+    # If we want to use the labels, but not weigh them
     else:
         points = points_pd.to_numpy()
 
@@ -88,10 +85,16 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
     centroids_idx = kmedoids_instance.get_medoids()
     centroids = points[centroids_idx]
 
-    # If the problem is two dimensional (the third column are the labels) then plot it
     if not plots_off:
         # Plot the decision boundary
-        Z, xx, yy = create_meshgrid(points, kmedoids_instance)
+        plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+        plt.xlim(-0.2, 1.2)
+        plt.ylim(-0.2, 1.2)
+        xx, yy = create_meshgrid(points)
+
+        # Obtain labels for each point in mesh. Use last trained model.
+        Z = kmedoids_instance.predict((np.c_[xx.ravel(), yy.ravel()]))
+        Z = Z.reshape(xx.shape)
 
         plt.imshow(Z, interpolation='nearest',
                    extent=(xx.min(), xx.max(), yy.min(), yy.max()),
@@ -99,7 +102,7 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
                    aspect='auto', origin='lower')
 
         if other_points is not None:
-            plt.scatter(other_points.x, other_points.y, c=other_points.predictions, marker='o', s=30)
+            plt.scatter(other_points.iloc[:, 0], other_points.iloc[:, 1], c=other_points.predictions, marker='o', s=30)
         else:
             plt.scatter(points[:, 0], points[:, 1], c=points[:, 2], marker='o', s=30)
         # Plot the centroids

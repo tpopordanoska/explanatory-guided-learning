@@ -5,82 +5,6 @@ from src import plot_decision_surface
 from src.clustering import run_kmedoids
 from src.experiments import *
 from src.optimal_user import Annotator
-import numpy as np
-import pandas as pd
-
-METHODS = {
-    "al_least_confident": lambda **kwargs: least_confident_idx(**kwargs),
-    "sq_random": lambda **kwargs: search_query(**kwargs),
-    "optimal_user": lambda **kwargs: optimal_user(**kwargs)
-}
-
-
-def optimal_user(**kwargs):
-    """
-    Find index of the query to be labeled using the optimal_user strategy.
-
-    :param kwargs: Keyword arguments
-
-    :return: The index of the query (in X) to be labeled
-    """
-    train_idx = kwargs.pop("train_idx")
-    known_idx = kwargs.pop("known_idx")
-    y_pred = kwargs.pop("y_pred")
-    experiment = kwargs.pop("experiment")
-    no_clusters = kwargs.pop("no_clusters")
-    path = kwargs.pop("path")
-    plots_off = kwargs.pop("plots_off")
-    theta = kwargs.pop("theta")
-    file = kwargs.pop("file")
-    use_labels = kwargs.pop("use_labels")
-    use_weights = kwargs.pop("use_weights")
-    rng = experiment.rng
-
-    known_train_idx = np.concatenate((known_idx, train_idx), axis=0)
-    kmedoids_pd = pd.DataFrame(experiment.X[known_train_idx], columns=experiment.feature_names)
-    kmedoids_pd['predictions'] = np.concatenate((experiment.y[known_idx], y_pred), axis=0)
-
-    known_train_pd = kmedoids_pd.copy()
-    known_train_pd['labels'] = experiment.y[known_train_idx]
-    known_train_pd["idx"] = known_train_idx
-
-    # Find the clusters and their centroids
-    clusters, centroids = run_kmedoids(kmedoids_pd, n_clusters=no_clusters, use_labels=use_labels,
-                                       use_weights=use_weights, path=path, plots_off=plots_off)
-    # Find the index of the query to be labeled
-    wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, theta=theta, rng=rng, file=file)
-    # Plot the wrong points
-    if len(wrong_points):
-        run_kmedoids(kmedoids_pd, n_clusters=no_clusters, other_points=wrong_points, use_labels=use_labels,
-                     use_weights=use_weights, path=path, plots_off=plots_off)
-
-    return query_idx
-
-
-def search_query(**kwargs):
-    """
-    Find index of the query to be labeled using the search_query strategy.
-
-    :param kwargs: Keyword arguments
-
-    :return: The index of the query (in X) to be labeled
-    """
-    train_idx = kwargs.pop("train_idx")
-    experiment = kwargs.pop("experiment")
-    X_train, y_train = experiment.X[train_idx], experiment.y[train_idx]
-
-    # Class conditional random sampling
-    elements, counts = np.unique(y_train, return_counts=True)
-    if len(elements) != len(np.unique(experiment.y)):
-        # If the pool of one class is exhausted, switch to random sampling from the other class
-        return select_random(train_idx, experiment.rng)
-
-    total = sum(counts)
-    weights = [counts[1] / total, counts[0] / total]
-    sampled_class = experiment.rng.choice(elements, p=weights)
-    sampled_subset_idx = np.where(y_train == sampled_class)[0]
-    idx_in_train = select_random(sampled_subset_idx, experiment.rng)
-    return train_idx[idx_in_train]
 
 
 class ActiveLearningLoop:
@@ -95,6 +19,108 @@ class ActiveLearningLoop:
         self.thetas = thetas
         self.use_weights = use_weights
         self.use_labels = use_labels
+        self.query_array = []
+
+        self.METHODS = {
+            "al_least_confident": lambda **kwargs: least_confident_idx(**kwargs),
+            "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
+            "optimal_user": lambda **kwargs: self.optimal_user(**kwargs)
+        }
+
+    def optimal_user(self, **kwargs):
+        """
+        Find index of the query to be labeled using the optimal_user strategy.
+
+        :param kwargs: Keyword arguments
+
+        :return: The index of the query (in X) to be labeled
+        """
+        train_idx = kwargs.pop("train_idx")
+        known_idx = kwargs.pop("known_idx")
+        y_pred = kwargs.pop("y_pred")
+        theta = kwargs.pop("theta")
+        X_train = get_from_indexes(self.experiment.X, train_idx)
+        X_known = get_from_indexes(self.experiment.X, known_idx)
+
+        X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+
+        X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
+        kmedoids_pd = pd.DataFrame(data=X_known_train)
+        kmedoids_pd['predictions'] = np.concatenate((self.experiment.y[known_idx], y_pred), axis=0)
+
+        known_train_pd = kmedoids_pd.copy()
+        known_train_idx = np.concatenate((known_idx, train_idx), axis=0)
+        known_train_pd['labels'] = self.experiment.y[known_train_idx]
+        known_train_pd["idx"] = known_train_idx
+
+        # Find the clusters and their centroids
+        clusters, centroids = run_kmedoids(kmedoids_pd, n_clusters=self.no_clusters, use_labels=self.use_labels,
+                                           use_weights=self.use_weights, path=self.path, plots_off=self.plots_off)
+        # Find the index of the query to be labeled
+        wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, theta=theta,
+                                                                        rng=self.experiment.rng, file=self.file)
+        # Plot the wrong points
+        if len(wrong_points):
+            run_kmedoids(kmedoids_pd, n_clusters=self.no_clusters, other_points=wrong_points, use_labels=self.use_labels,
+                         use_weights=self.use_weights, path=self.path, plots_off=self.plots_off)
+
+        return query_idx
+
+    def search_query_array(self, **kwargs):
+        """
+        Find index of the query to be labeled using the search_query strategy.
+
+        :param kwargs: Keyword arguments
+
+        :return: The index of the query (in X) to be labeled
+        """
+        train_idx = kwargs.pop("train_idx")
+        iteration = kwargs.pop("iteration")
+        y_train = self.experiment.y[train_idx]
+
+        if not len(self.query_array):
+            # It has not been initialized
+            queried = 0
+            query_array = []
+            # while we haven't emptied the training pool and we haven't reached the max_iter
+            while len(y_train) and queried < self.max_iter:
+                for label in np.unique(y_train):
+                    sampled_subset_idx = np.where(y_train == label)[0]
+                    if not len(sampled_subset_idx):
+                        continue
+                    idx_in_train = select_random(sampled_subset_idx, self.experiment.rng)
+                    query_array.append(train_idx[idx_in_train])
+                    train_idx = np.delete(train_idx, idx_in_train)
+                    queried += 1
+                    y_train = self.experiment.y[train_idx]
+            self.query_array = query_array
+
+        return self.query_array[iteration]
+
+    def search_query(self, **kwargs):
+        """
+        Find index of the query to be labeled using the search_query strategy.
+
+        :param kwargs: Keyword arguments
+
+        :return: The index of the query (in X) to be labeled
+        """
+        train_idx = kwargs.pop("train_idx")
+        experiment = self.experiment
+        y_train = experiment.y[train_idx]
+
+        # Class conditional random sampling
+        elements, counts = np.unique(y_train, return_counts=True)
+        if len(elements) != len(np.unique(experiment.y)):
+            # If the pool of one class is exhausted, switch to random sampling from the other class
+            return select_random(train_idx, experiment.rng)
+
+        total = sum(counts)
+        weights = [counts[1] / total, counts[0] / total]
+        sampled_class = experiment.rng.choice(elements, p=weights)
+        sampled_subset_idx = np.where(y_train == sampled_class)[0]
+        idx_in_train = select_random(sampled_subset_idx, experiment.rng)
+        return train_idx[idx_in_train]
 
     def move(self, known_idx, train_idx, query_idx):
         """
@@ -132,9 +158,12 @@ class ActiveLearningLoop:
         :return: The predictions and the lists with the scores
         """
         experiment = self.experiment
-        X_known, y_known = experiment.X[known_idx], experiment.y[known_idx]
-        X_train, y_train = experiment.X[train_idx], experiment.y[train_idx]
-        X_test, y_test = experiment.X[test_idx], experiment.y[test_idx]
+        X_known, y_known = get_from_indexes(experiment.X, known_idx), experiment.y[known_idx]
+        X_train, y_train = get_from_indexes(experiment.X, train_idx), experiment.y[train_idx]
+        X_test, y_test = get_from_indexes(experiment.X, test_idx), experiment.y[test_idx]
+
+        # Normalize the data
+        X_known, X_train, X_test = Normalizer(self.experiment.normalizer).normalize_all(X_known, X_train, X_test)
 
         experiment.model.fit(X_known, y_known)
         y_pred = experiment.model.predict(X_train)
@@ -207,11 +236,8 @@ class ActiveLearningLoop:
 
         :return: List of accuracy scores on train and test set
         """
+        self.query_array = []
         experiment = self.experiment
-        if isinstance(experiment, SyntheticSimple):
-            plot_points(experiment.X[known_idx], experiment.y[known_idx], "The known points", self.path)
-            plot_points(experiment.X[test_idx], experiment.y[test_idx], "The test points", self.path)
-
         theta = -1
         if "optimal_user" in method:
             theta = float(method.split("_")[2])
@@ -227,30 +253,22 @@ class ActiveLearningLoop:
                 break
 
             # 2. Find the index of the query to be labeled
-            query_idx = METHODS[method](experiment=experiment,
-                                        known_idx=known_idx,
-                                        train_idx=train_idx,
-                                        y_pred=y_pred,
-                                        theta=theta,
-                                        no_clusters=self.no_clusters,
-                                        path=self.path,
-                                        file=self.file,
-                                        plots_off=self.plots_off,
-                                        use_weights=self.use_weights,
-                                        use_labels=self.use_labels)
+            query_idx = self.METHODS[method](experiment=experiment,
+                                             known_idx=known_idx,
+                                             train_idx=train_idx,
+                                             y_pred=y_pred,
+                                             iteration=iteration,
+                                             theta=theta)
 
             if query_idx is None:
                 break
-
-            self.file.write("Selected point: {}\n".format(experiment.X[query_idx]))
+            self.file.write("Selected point: {}\n".format(get_from_indexes(experiment.X, query_idx)))
             if not self.plots_off:
-                plot_decision_surface(experiment.model,
-                                      experiment.X[known_idx],
-                                      experiment.y[known_idx],
-                                      experiment.X[train_idx],
-                                      experiment.y[train_idx],
-                                      least_conf=experiment.X[query_idx],
-                                      title="Iteration: {} {} {}".format(iteration, experiment.model.name, method),
+                plot_decision_surface(experiment,
+                                      known_idx,
+                                      train_idx,
+                                      query_idx=query_idx,
+                                      title=str(iteration) + " " + experiment.model.name + " " + method,
                                       path=self.path)
 
             # 3. Query an "oracle" and add the labeled example to the training set
@@ -261,23 +279,17 @@ class ActiveLearningLoop:
                 known_idx, train_idx, test_idx, scores, test_scores)
 
         if not self.plots_off:
-            plot_decision_surface(experiment.model,
-                                  experiment.X[known_idx],
-                                  experiment.y[known_idx],
-                                  experiment.X[train_idx],
-                                  experiment.y[train_idx],
-                                  least_conf=experiment.X[query_idx],
-                                  title="Iteration: {} {} {}".format(iteration, experiment.model.name, method),
+            plot_decision_surface(experiment,
+                                  known_idx,
+                                  train_idx,
+                                  title=str(iteration) + " " + experiment.model.name + " " + method,
                                   path=self.path)
             # Plot the predictions
-            plot_decision_surface(experiment.model,
-                                  experiment.X[known_idx],
-                                  experiment.y[known_idx],
-                                  experiment.X[test_idx],
-                                  experiment.y[test_idx],
+            plot_decision_surface(experiment,
+                                  known_idx,
+                                  test_idx,
                                   y_pred=y_pred_test,
-                                  title="Predicts of the model {} on test data using {}"
-                                            .format(experiment.model.name, method),
+                                  title="Predictions " + experiment.model.name + " " + method,
                                   path=self.path)
 
         return scores, test_scores
