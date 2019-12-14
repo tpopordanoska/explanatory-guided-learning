@@ -1,15 +1,12 @@
 import numpy as np
 from sklearn.datasets.samples_generator import make_blobs
-from sklearn.utils import check_random_state
-
-from sklearn.preprocessing import MinMaxScaler
 
 from src.learners import *
 from .experiment import Experiment
 
 
 class SyntheticSimple(Experiment):
-    def __init__(self, balanced_db=True, tiny_clusters=True, rng=0):
+    def __init__(self, model, rng, balanced_db=True, tiny_clusters=True):
 
         rng = check_random_state(rng)
         # Generate mock data with balanced number of positive and negative examples
@@ -36,12 +33,7 @@ class SyntheticSimple(Experiment):
         X = np.concatenate((X_pos, X_neg), axis=0)
         y = np.concatenate((y_pos, y_neg), axis=0)
 
-        sc = MinMaxScaler()
-        X_processed = sc.fit_transform(X)
-
-        model = SVM(name='svm_rbf', rng=rng, gamma=1e3, C=1)
-
-        super().__init__(model, X_processed, y, feature_names=['x', 'y'], name="Synthetic simple", prop_known=0.2, rng=rng)
+        super().__init__(model, X, y, feature_names=['x', 'y'], name="Synthetic simple", prop_known=0.2, rng=rng)
 
     @staticmethod
     def generate_positive(axis):
