@@ -1,13 +1,13 @@
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 
-from src.learners import *
 from .experiment import Experiment
-
+from sklearn.preprocessing import StandardScaler
 
 class HabermansSurvival(Experiment):
 
-    def __init__(self, rng):
+    def __init__(self, **kwargs):
+        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
 
         urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/haberman/haberman.data"]
         self.load_dataset('data', urls)
@@ -21,9 +21,5 @@ class HabermansSurvival(Experiment):
         # creating the feature vector
         X = dataset.drop('Survival status', axis=1)
 
-        sc = MinMaxScaler()
-        X_processed = sc.fit_transform(X)
-
-        model = SVM(name='svm_rbf', rng=rng, gamma=1, C=1e2)
-
-        super().__init__(model, X_processed, y, feature_names=list(X.columns.values), name="Haberman's Survival", prop_known=0.01, rng=rng)
+        super().__init__(model, X.to_numpy(), y, feature_names=list(X.columns.values), name="Haberman's Survival",
+                         prop_known=0.01, rng=rng, normalizer=StandardScaler())

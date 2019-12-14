@@ -12,3 +12,6 @@ from .loop import *
 
 from . import clustering
 from .clustering import *
+
+from . import normalizer
+from .normalizer import *

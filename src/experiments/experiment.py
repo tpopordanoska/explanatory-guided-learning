@@ -3,6 +3,7 @@ import os
 import numpy as np
 import requests
 from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.utils import check_random_state
 
 
@@ -10,7 +11,7 @@ class Experiment:
     """
     Class containing common methods for the experiments
     """
-    def __init__(self, model, X, y, feature_names, name, prop_known=0.1, metric="f1", rng=None):
+    def __init__(self, model, X, y, feature_names, name, prop_known=0.1, metric="f1", rng=None, normalizer=MinMaxScaler()):
         self.model = model
         self.X, self.y = X, y
         self.feature_names = feature_names
@@ -18,6 +19,7 @@ class Experiment:
         self.metric = metric
         self.prop_known = prop_known
         self.rng = check_random_state(rng)
+        self.normalizer = normalizer
 
     @staticmethod
     def load_dataset(path, urls):

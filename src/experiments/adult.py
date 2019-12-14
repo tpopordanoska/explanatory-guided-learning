@@ -6,13 +6,14 @@ from sklearn.pipeline import FeatureUnion
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.learners import *
 from .experiment import Experiment
 
 
 class Adult(Experiment):
 
-    def __init__(self, rng):
+    def __init__(self, **kwargs):
+        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
 
         urls = ["http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
                 "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names",
@@ -21,6 +22,7 @@ class Adult(Experiment):
 
         columns = ["age", "workClass", "fnlwgt", "education", "education-num", "marital-status", "occupation",
                    "relationship", "race", "sex", "capital-gain", "capital-loss", "hours-per-week", "native-country", "income"]
+        global train_data
         train_data = pd.read_csv('data/adult.data', names=columns, sep=' *, *', na_values='?')
         test_data = pd.read_csv('data/adult.test', names=columns, sep=' *, *', skiprows=1, na_values='?')
         dataset = train_data # pd.concat([train_data, test_data])
@@ -43,18 +45,14 @@ class Adult(Experiment):
         y = dataset['income'].to_numpy()
         # creating the feature vector
         X = dataset.drop('income', axis=1)
-        # pass the data through the full_pipeline
-        X_processed = full_pipeline.fit_transform(X)
 
-        sampled_idx, _ = list(StratifiedShuffleSplit(n_splits=2, train_size=0.1, random_state=0).split(X_processed, y))[0]
-        X_processed, y = X_processed[sampled_idx], y[sampled_idx]
+        sampled_idx, _ = list(StratifiedShuffleSplit(n_splits=2, train_size=0.1, random_state=0).split(X, y))[0]
+        X, y = X.iloc[sampled_idx], y[sampled_idx]
 
-        column_names = ['Col_' + str(i) for i in range(0, X_processed.shape[1])]
-
-        model = SVM(name='svm_rbf', rng=rng, gamma=1, C=1e2)
+        column_names = ['Col_' + str(i) for i in range(0, X.shape[1])]
 
         #After resampling with train_size = 0.1: total 3256 examples, 784 1s, 2472 0s
-        super().__init__(model, X_processed, y, feature_names=column_names, name="Adult", prop_known=0.01, rng=rng)
+        super().__init__(model, X, y, feature_names=column_names, name="Adult", prop_known=0.01, rng=rng, normalizer=full_pipeline)
 
 
 class ColumnsSelector(BaseEstimator, TransformerMixin):
@@ -100,7 +98,7 @@ class CategoricalEncoder(BaseEstimator, TransformerMixin):
         self.dropFirst = dropFirst
 
     def fit(self, X, y=None):
-        join_df = X # pd.concat([train_data, test_data])
+        join_df = train_data # pd.concat([train_data, test_data])
         join_df = join_df.select_dtypes(include=['object'])
         for column in join_df.columns:
             self.categories[column] = join_df[column].value_counts().index.tolist()
