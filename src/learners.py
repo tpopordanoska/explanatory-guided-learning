@@ -1,5 +1,7 @@
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
 from sklearn.svm import LinearSVC
 from sklearn.svm import SVC
 from sklearn.utils import check_random_state
@@ -32,7 +34,7 @@ class Learner:
 
 
 class SVM(Learner):
-    def __init__(self, name='svm', rng=None, gamma=1, C=1e2):
+    def __init__(self, name='svm', rng=None, gamma='scale', C=1):
         super().__init__(name, rng)
 
         model = None
@@ -46,6 +48,9 @@ class SVM(Learner):
         elif name == 'svm_rbf':
             model = SVC(gamma=gamma, C=C, random_state=self.rng)
 
+        elif name == "default":
+            model = SVC()
+
         elif name == 'l1svm':
             model = LinearSVC(
                 penalty='l1',
@@ -55,6 +60,20 @@ class SVM(Learner):
                 random_state=self.rng)
 
         self._model = model
+
+
+class GNB(Learner):
+    def __init__(self, name="Gaussian Naive Bayes", rng=None):
+        super().__init__(name, rng)
+
+        self._model = GaussianNB()
+
+
+class NeuralNetwork(Learner):
+    def __init__(self, name="MLPClassifier", rng=None):
+        super().__init__(name, rng)
+
+        self._model = MLPClassifier()
 
 
 class LogRegression(Learner):
