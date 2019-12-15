@@ -1,4 +1,4 @@
-from sklearn.metrics import f1_score, classification_report, roc_curve, auc
+from sklearn.metrics import f1_score, classification_report, roc_auc_score
 
 from src import *
 from src import plot_decision_surface
@@ -197,7 +197,7 @@ class ActiveLearningLoop:
         :return: The score
         """
 
-        score = f1_score(y_true, y_pred)
+        score = f1_score(y_true, y_pred, average='weighted')
         if self.file is not None:
             self.file.write("F1 score: {}\n".format(score))
             self.file.write(classification_report(y_true, y_pred))
@@ -215,8 +215,7 @@ class ActiveLearningLoop:
 
         :return: The AUC score
         """
-        fpr, tpr, thresholds = roc_curve(y_true, y_pred, pos_label=2)
-        score = auc(fpr, tpr)
+        score = roc_auc_score(y_true, y_pred)
         if self.file is not None:
             self.file.write("AUC score: {}\n".format(score))
             self.file.write(classification_report(y_true, y_pred))

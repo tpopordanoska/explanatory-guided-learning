@@ -27,11 +27,14 @@ def get_mean_and_std(scores_dict):
     return scores_dict_mean, scores_dict_std
 
 
-def get_passive_f1(experiment, file, n_splits, rng):
+def get_passive_score(experiment, file, n_splits, rng):
     exp_model = experiment.model._model
     X_normalized = Normalizer(experiment.normalizer).normalize(experiment.X)
     kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=rng)
-    scores = cross_val_score(exp_model, X_normalized, experiment.y, cv=kfold, scoring="f1")
+    scorer = "f1_weighted"
+    if experiment.metric == "auc":
+        scorer = "roc_auc"
+    scores = cross_val_score(exp_model, X_normalized, experiment.y, cv=kfold, scoring=scorer)
     file.write("Passive accuracy for {}: {:.2f} (+/- {:.2f}) ".format(experiment.name, scores.mean(), scores.std() * 2))
     return scores
 
@@ -133,12 +136,16 @@ for experiment_name in experiments:
             scores_dict_mean, scores_dict_std = get_mean_and_std(scores_dict)
             scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict)
 
-            f1_score_passive = get_passive_f1(experiment, file, n_folds, rng)
+            score_passive = get_passive_score(experiment, file, n_folds, rng)
             file.write("Passive accuracy for {}:  {:.2f} (+/- {:.2f}) "
-                       .format(experiment.name, f1_score_passive.mean(), f1_score_passive.std() * 2))
+                       .format(experiment.name, score_passive.mean(), score_passive.std() * 2))
 
-            plot_acc(scores_dict_mean, scores_dict_std, f1_score_passive, title="{} {} F1 score on train set using {}"
-                     .format(experiment.model.name, experiment.name, str(n_clusters)), path=results_path)
+            plot_acc(scores_dict_mean, scores_dict_std, score_passive,
+                     title="{} {} {} score on train {} clusters".format(experiment.model.name, experiment.name,
+                                                                        experiment.metric, str(n_clusters)),
+                     path=results_path)
 
-            plot_acc(scores_test_dict_mean, scores_test_dict_std, f1_score_passive, title="{} {} F1 score on test set using {}"
-                     .format(experiment.model.name, experiment.name, str(n_clusters)), path=results_path)
+            plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive,
+                     title="{} {} {} score on test {} clusters".format(experiment.model.name, experiment.name,
+                                                                       experiment.metric, str(n_clusters)),
+                     path=results_path)

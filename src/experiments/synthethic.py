@@ -43,7 +43,7 @@ class Synthetic(Experiment):
         X = np.concatenate((X_pos, X_neg), axis=0)
         y = np.concatenate((y_pos, y_neg), axis=0)
 
-        super().__init__(model, X, y, feature_names=['x', 'y'], name="Synthetic", prop_known=0.001, rng=rng)
+        super().__init__(model, X, y, feature_names=['x', 'y'], name="Synthetic", prop_known=0.001, rng=rng, metric="auc")
 
     @staticmethod
     def generate_positive(start, end, skip):
