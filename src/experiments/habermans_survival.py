@@ -7,7 +7,6 @@ class HabermansSurvival(Experiment):
 
     def __init__(self, **kwargs):
         model = kwargs.pop("model")
-        rng = kwargs.pop("rng")
 
         urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/haberman/haberman.data"]
         self.load_dataset('data', urls)
@@ -22,4 +21,4 @@ class HabermansSurvival(Experiment):
         X = dataset.drop('Survival status', axis=1)
 
         super().__init__(model, X.to_numpy(), y, feature_names=list(X.columns.values), name="Haberman's Survival",
-                         prop_known=0.01, rng=rng, normalizer=StandardScaler())
+                         prop_known=0.01, rng=model.rng, normalizer=StandardScaler())

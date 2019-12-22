@@ -8,7 +8,6 @@ class BreastCancer(Experiment):
 
     def __init__(self, **kwargs):
         model = kwargs.pop("model")
-        rng = kwargs.pop("rng")
 
         # Samples per class	212(M),357(B)
         dataset = load_breast_cancer()
@@ -18,4 +17,4 @@ class BreastCancer(Experiment):
         y = dataset.target
 
         super().__init__(model, X, y, feature_names=list(dataset.feature_names), name="Breast Cancer", prop_known=0.01,
-                         rng=rng, normalizer=StandardScaler())
+                         rng=model.rng, normalizer=StandardScaler())
