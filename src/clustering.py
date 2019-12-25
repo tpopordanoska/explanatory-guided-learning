@@ -1,9 +1,7 @@
-from datetime import datetime
-
-import matplotlib.pyplot as plt
-import numpy as np
 from pyclustering.cluster.kmedoids import kmedoids
 from sklearn.cluster import KMeans
+
+from .plotting import *
 
 
 def run_kmeans(points, n_clusters=2, use_labels="True"):
@@ -27,23 +25,6 @@ def run_kmeans(points, n_clusters=2, use_labels="True"):
     plt.scatter(points[:, 0], points[:, 1], c=points[:, 2])
     plt.title("K-Means")
     plt.show()
-
-
-def create_meshgrid(points):
-    """
-    Create the mesh grid to plot in.
-
-    :param points: The dataset
-
-    :return: The mesh grid to plot in
-    """
-    # Plot the decision boundary
-    h = 0.1
-    x_min, x_max = points[:, 0].min() - 1, points[:, 0].max() + 1
-    y_min, y_max = points[:, 1].min() - 1, points[:, 1].max() + 1
-    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-
-    return xx, yy
 
 
 def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", use_weights="False", path=None, plots_off=True):
@@ -88,8 +69,8 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
     if not plots_off:
         # Plot the decision boundary
         plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-        plt.xlim(-0.2, 1.2)
-        plt.ylim(-0.2, 1.2)
+        plt.xlim(points[:, 0].min() - 0.1, points[:, 0].max() + 0.1)
+        plt.ylim(points[:, 1].min() - 0.1, points[:, 1].max() + 0.1)
         xx, yy = create_meshgrid(points)
 
         # Obtain labels for each point in mesh. Use last trained model.

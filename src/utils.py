@@ -1,8 +1,8 @@
 import os
 from datetime import datetime
 
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import figure
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import cross_val_score
 
 from .experiments import *
 from .normalizer import *
@@ -38,7 +38,7 @@ def create_folders():
     return path
 
 
-def create_experiment_folder(path, experiment, model):
+def create_experiment_folder(path, experiment):
     """
     Create folder for storing results for the given experiment and model
 
@@ -51,8 +51,12 @@ def create_experiment_folder(path, experiment, model):
         os.mkdir(path_experiment)
     except OSError:
         print("Creation of the directory %s failed" % path_experiment)
+    return path_experiment
 
-    path_model = "{}\\{} {}".format(path_experiment, model, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+
+def create_model_folder(path, model):
+
+    path_model = "{}\\{} {}".format(path, model, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
     try:
         os.mkdir(path_model)
     except OSError:
@@ -61,128 +65,34 @@ def create_experiment_folder(path, experiment, model):
     return path_model
 
 
-def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pred=None, soft=True, title="", path=None):
-    """
-    Plots the decision surface of the model together with the data points.
+def get_mean_and_std(scores_dict, n_folds):
+    if not scores_dict:
+        return {}, {}
+    scores_dict_mean = {}
+    scores_dict_std = {}
+    for method, scores in scores_dict.items():
+        if scores:
+            smallest_len = min([len(x) for x in scores])
+            scores_smallest_len = [s[:smallest_len] for s in scores]
+            scores_dict_mean[method] = np.mean(scores_smallest_len, axis=0)
+            scores_dict_std[method] = np.std(scores_smallest_len, axis=0) / np.sqrt(n_folds)
 
-    :param experiment: The experiment
-    :param known_idx: The indexes of the known points
-    :param train_idx: The indexes of the training points
-    :param query_idx: The index of chosen least confident example
-    :param y_pred: The predictions of the model
-    :param soft: Whether to plot  kernel-like boundary
-    :param title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
-
-    """
-    X_known, y_known = experiment.X[known_idx], experiment.y[known_idx]
-    X_train, y_train = experiment.X[train_idx], experiment.y[train_idx]
-    X_known_norm, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
-    model = experiment.model
-
-    figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-    # create a mesh to plot in
-    h = 0.05  # step size in the mesh
-
-    x_min, x_max = X_known_norm[:, 0].min() - 1, X_known_norm[:, 0].max() + 1
-    y_min, y_max = X_known_norm[:, 1].min() - 1, X_known_norm[:, 1].max() + 1
-    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-
-    if soft:
-        if hasattr(model._model , "decision_function"):
-            Z = model.decision_function(np.c_[xx.ravel(), yy.ravel()])
-        else:
-            Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
-    else :
-        Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
-
-    # Put the result into a color plot
-    Z = Z.reshape(xx.shape)
-    plt.contourf(xx, yy, Z, cmap=plt.cm.coolwarm, alpha=0.8)
-
-    if y_pred is not None:
-        plt.scatter(X_train_norm[:, 0], X_train_norm[:, 1], c=y_pred, cmap=plt.cm.coolwarm, s=25)
-    else:
-        plt.scatter(X_train_norm[:, 0], X_train_norm[:, 1], c=y_train, cmap=plt.cm.coolwarm, s=25)
-        plt.scatter(X_known_norm[:, 0], X_known_norm[:, 1], c=y_known, cmap=plt.cm.coolwarm, s=25, linewidths=6)
-
-    if query_idx is not None:
-        least_conf = experiment.X[query_idx]
-        idx_array = np.where((X_train[:, 0] == least_conf[0]) & (X_train[:, 1] == least_conf[1]))[0]
-        if len(idx_array):
-            idx_in_train = idx_array[0]
-            least_conf_norm = X_train_norm[idx_in_train]
-            plt.scatter(least_conf_norm[0], least_conf_norm[1], marker='x', s=500, linewidths=3, color='green')
-    plt.title(title)
-    # plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
-    # plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
-    plt.xlim(-0.2, 1.2)
-    plt.ylim(-0.2, 1.2)
-    if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
-    else:
-        plt.show()
-    plt.close()
+    return scores_dict_mean, scores_dict_std
 
 
-def plot_points(X, y, title="", path=None):
-    """
-    Plot the given points with their corresponding labels.
-
-    :param X: Contains the coordinates of the points to be plotted
-    :param y: The corresponding labels
-    :param title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
-
-    """
-    figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-    plt.scatter(X[:, 0], X[:, 1], c=y, marker='o', s=45, cmap=plt.cm.coolwarm)
-    # set axes range
-    plt.xlim(-0.2, 1.2)
-    plt.ylim(-0.2, 1.2)
-    # plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
-    # plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
-    plt.title(title)
-    if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
-    else:
-        plt.show()
-    plt.close()
-
-
-def plot_acc(scores, stds, f1_score_passive, title="", path=None):
-    """
-    Plot the accuracy scores as a function of the queried instances.
-
-    :param scores: Dictionary containing the accuracy scores for each method
-    :param stds: Dictionary containing the standard deviations for each method
-    :param f1_score_passive: The f1 score of the experiment in a passive setting
-    :param title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
-
-    """
-    for key, score in scores.items():
-        x = np.arange(len(score))
-        plt.plot(x, score, label=key)
-        plt.fill_between(x, score - stds[key], score + stds[key], alpha=0.25, linewidth=0)
-
-    x = np.arange(len(max(scores.values(), key=lambda value: len(value))))
-    passive_mean = np.array([f1_score_passive.mean() for i in range(len(x))])
-    passive_std = np.array([f1_score_passive.std() * 2 for i in range(len(x))])
-
-    plt.plot(x, passive_mean, label="Passive setting")
-    plt.fill_between(x, passive_mean - passive_std, passive_mean + passive_std, alpha=0.25, linewidth=0)
-
-    plt.grid(True)
-    plt.xlabel('# instances queried')
-    plt.ylabel('F1 score')
-    plt.title(title)
-    plt.legend()
-    if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
-    else:
-        plt.show()
-    plt.close()
+def get_passive_score(experiment, file, n_splits, split_seed, scorer):
+    pipeline = Pipeline([('transformer', experiment.normalizer), ('estimator', experiment.model._model)])
+    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=split_seed)
+    scores = cross_val_score(pipeline, experiment.X, experiment.y, cv=kfold, scoring=scorer)
+    scores_mean_std = {
+        "mean": np.mean(scores, axis=0),
+        "std": np.std(scores, axis=0) / np.sqrt(n_splits)
+    }
+    file.write("(sklearn) Passive {} for {}: {:.2f} (+/- {:.2f}) ".format(scorer, experiment.name, scores.mean(),
+                                                                          scores.std() * 2))
+    file.write("Passive {} for {}: {:.2f} (+/- {:.2f}) ".format(scorer, experiment.name, scores_mean_std["mean"],
+                                                                scores_mean_std["std"]))
+    return scores_mean_std
 
 
 def least_confident_idx(**kwargs):
@@ -218,6 +128,7 @@ def get_from_indexes(X, indexes):
     if isinstance(X, pd.DataFrame):
         return X.iloc[indexes]
     return X[indexes]
+
 
 def select_by_coordinates(x, y, data):
     """

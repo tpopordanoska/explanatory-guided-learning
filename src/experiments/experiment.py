@@ -39,17 +39,18 @@ class Experiment:
             with open(filename, "wb") as file:
                 file.write(data)
 
-    def split(self, n_splits=10, prop_known=0.5):
+    def split(self, n_splits=10, prop_known=0.5, split_seed=0):
         """
         Split the data into known, train and test set.
 
         :param n_splits: How many splits to generate
         :param prop_known: The proportion of the known points
+        :param split_seed: The seed used for the split
 
         :return: Three arrays of indices for known, train and test set respectfully
         """
         # Generate folds
-        kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=self.rng)
+        kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=split_seed)
         for nontest_indices, test_indices in kfold.split(self.X, self.y):
 
             # Split the non-test set into known set and training set

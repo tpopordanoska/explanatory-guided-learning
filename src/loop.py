@@ -1,10 +1,8 @@
-from sklearn.metrics import f1_score, classification_report, roc_auc_score
+from sklearn.metrics import classification_report
 
-from src import *
-from src import plot_decision_surface
 from src.clustering import run_kmedoids
-from src.experiments import *
-from src.optimal_user import Annotator
+from src.explanatory_guided_learning import Annotator
+from src.plotting import *
 
 
 class ActiveLearningLoop:
@@ -20,16 +18,17 @@ class ActiveLearningLoop:
         self.use_weights = use_weights
         self.use_labels = use_labels
         self.query_array = []
+        self.annotated_point = {}
 
         self.METHODS = {
             "al_least_confident": lambda **kwargs: least_confident_idx(**kwargs),
             "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
-            "optimal_user": lambda **kwargs: self.optimal_user(**kwargs)
+            "egl": lambda **kwargs: self.explanatory_guided(**kwargs)
         }
 
-    def optimal_user(self, **kwargs):
+    def explanatory_guided(self, **kwargs):
         """
-        Find index of the query to be labeled using the optimal_user strategy.
+        Find index of the query to be labeled using the explanatory_guided strategy.
 
         :param kwargs: Keyword arguments
 
@@ -39,6 +38,7 @@ class ActiveLearningLoop:
         known_idx = kwargs.pop("known_idx")
         y_pred = kwargs.pop("y_pred")
         theta = kwargs.pop("theta")
+        iteration = kwargs.pop("iteration")
         X_train = get_from_indexes(self.experiment.X, train_idx)
         X_known = get_from_indexes(self.experiment.X, known_idx)
 
@@ -57,8 +57,12 @@ class ActiveLearningLoop:
         clusters, centroids = run_kmedoids(kmedoids_pd, n_clusters=self.no_clusters, use_labels=self.use_labels,
                                            use_weights=self.use_weights, path=self.path, plots_off=self.plots_off)
         # Find the index of the query to be labeled
-        wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, theta=theta,
+        wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, train_idx, theta=theta,
                                                                         rng=self.experiment.rng, file=self.file)
+        key = "egl_" + str(theta)
+        if not len(wrong_points) and key not in self.annotated_point.keys():
+            self.annotated_point[key] = iteration
+
         # Plot the wrong points
         if len(wrong_points):
             run_kmedoids(kmedoids_pd, n_clusters=self.no_clusters, other_points=wrong_points, use_labels=self.use_labels,
@@ -145,15 +149,18 @@ class ActiveLearningLoop:
 
         return known_idx, train_idx
 
-    def train_and_get_acc(self, known_idx, train_idx, test_idx, acc_scores, test_acc_scores):
+    def train_and_get_acc(self, known_idx, train_idx, test_idx, acc_scores_f1, test_acc_scores_f1, acc_scores_auc,
+                          test_acc_scores_auc):
         """
         Train the model and calculate the accuracy.
 
         :param known_idx: The indexes of the known set
         :param train_idx: The indexes of the train set
         :param test_idx: The indexes of the test set
-        :param acc_scores: List containing the accuracy scores on train set
-        :param test_acc_scores: List containing the accuracy scores on test set
+        :param acc_scores_f1: List containing the f1 accuracy scores on train set
+        :param test_acc_scores_f1: List containing the f1 accuracy scores on test set
+        :param acc_scores_auc: List containing the auc accuracy scores on train set
+        :param test_acc_scores_auc: List containing the auc accuracy scores on train set
 
         :return: The predictions and the lists with the scores
         """
@@ -168,10 +175,13 @@ class ActiveLearningLoop:
         experiment.model.fit(X_known, y_known)
         y_pred = experiment.model.predict(X_train)
         y_pred_test = experiment.model.predict(X_test)
-        acc_scores.append(self.calc_acc(y_train, y_pred, metric=experiment.metric))
-        test_acc_scores.append(self.calc_acc(y_test, y_pred_test, metric=experiment.metric))
 
-        return y_pred, y_pred_test, acc_scores, test_acc_scores
+        acc_scores_f1.append(self.calc_acc(y_train, y_pred, "f1"))
+        test_acc_scores_f1.append(self.calc_acc(y_test, y_pred_test, "f1"))
+        acc_scores_auc.append(self.calc_acc(y_train, y_pred, "auc"))
+        test_acc_scores_auc.append(self.calc_acc(y_test, y_pred_test, "auc"))
+
+        return y_pred, y_pred_test, acc_scores_f1, test_acc_scores_f1, acc_scores_auc, test_acc_scores_auc
 
     def calc_acc(self, y_true, y_pred, metric="f1"):
         """
@@ -215,13 +225,15 @@ class ActiveLearningLoop:
 
         :return: The AUC score
         """
-        score = roc_auc_score(y_true, y_pred)
+        try:
+            score = roc_auc_score(y_true, y_pred)
+        except ValueError:
+            score = 0
+            self.file.write("Setting AUC score to 0 because of ValueError.")
         if self.file is not None:
             self.file.write("AUC score: {}\n".format(score))
-            self.file.write(classification_report(y_true, y_pred))
         else:
             print("AUC score: {}\n".format(score))
-            print(classification_report(y_true, y_pred))
         return score
 
     def run(self, method, known_idx, train_idx, test_idx):
@@ -233,17 +245,18 @@ class ActiveLearningLoop:
         :param train_idx: The indexes of the train set
         :param test_idx: The indexes of the test set
 
-        :return: List of accuracy scores on train and test set
+        :return: List of accuracy scores (F1 and AUC) on train and test set
         """
         self.query_array = []
         experiment = self.experiment
         theta = -1
-        if "optimal_user" in method:
-            theta = float(method.split("_")[2])
-            method = "optimal_user"
+        if "egl" in method:
+            theta = float(method.split("_")[1])
+            method = "egl"
 
         # 1. Train a model
-        y_pred, y_pred_test, scores, test_scores = self.train_and_get_acc(known_idx, train_idx, test_idx, [], [])
+        y_pred, y_pred_test, scores_f1, test_scores_f1, scores_auc, test_scores_auc = \
+            self.train_and_get_acc(known_idx, train_idx, test_idx, [], [], [], [])
 
         for iteration in range(self.max_iter):
             self.file.write("Iteration: {}\n".format(iteration))
@@ -274,9 +287,10 @@ class ActiveLearningLoop:
             known_idx, train_idx = self.move(known_idx, train_idx, query_idx)
 
             # 4. Retrain the model with the new training set
-            y_pred, y_pred_test, scores, test_scores = self.train_and_get_acc(
-                known_idx, train_idx, test_idx, scores, test_scores)
+            y_pred, y_pred_test, scores_f1, test_scores_f1, scores_auc, test_scores_auc = self.train_and_get_acc(
+                known_idx, train_idx, test_idx, scores_f1, test_scores_f1, scores_auc, test_scores_auc)
 
+        # Plot the decision surface
         if not self.plots_off:
             plot_decision_surface(experiment,
                                   known_idx,
@@ -291,4 +305,4 @@ class ActiveLearningLoop:
                                   title="Predictions " + experiment.model.name + " " + method,
                                   path=self.path)
 
-        return scores, test_scores
+        return scores_f1, test_scores_f1, scores_auc, test_scores_auc

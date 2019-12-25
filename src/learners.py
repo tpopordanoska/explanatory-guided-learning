@@ -1,4 +1,4 @@
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
@@ -45,9 +45,6 @@ class SVM(Learner):
                 multi_class='ovr',
                 random_state=self.rng)
 
-        elif name == 'svm_rbf':
-            model = SVC(gamma=gamma, C=C, random_state=self.rng)
-
         elif name == "default":
             model = SVC()
 
@@ -59,6 +56,9 @@ class SVM(Learner):
                 multi_class='ovr',
                 random_state=self.rng)
 
+        else:
+            model = SVC(gamma=gamma, C=C, random_state=self.rng)
+
         self._model = model
 
 
@@ -67,6 +67,13 @@ class GNB(Learner):
         super().__init__(name, rng)
 
         self._model = GaussianNB()
+
+
+class RandomForrest(Learner):
+    def __init__(self, name="Random Forrest Classifier", rng=None):
+        super().__init__(name, rng)
+
+        self._model = RandomForestClassifier()
 
 
 class NeuralNetwork(Learner):
@@ -80,24 +87,12 @@ class LogRegression(Learner):
     def __init__(self, name='Logistic Regression', rng=None):
         super().__init__(name, rng)
 
-        self._model = LogisticRegression(
-            penalty='l2',
-            multi_class='ovr',
-            fit_intercept=False,
-            random_state=self.rng)
+        self._model = LogisticRegression()
 
 
 class GradientBoosting(Learner):
     def __init__(self, name="Gradient Boosting", rng=None):
         super().__init__(name, rng)
 
-        kwargs = {
-            'n_estimators': 1200,
-            'max_depth': 3,
-            'subsample': 0.5,
-            'learning_rate': 0.01,
-            'min_samples_leaf': 1,
-            'random_state': self.rng,
-        }
-        self._model = GradientBoostingClassifier(**kwargs)
+        self._model = GradientBoostingClassifier()
 
