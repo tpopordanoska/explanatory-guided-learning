@@ -95,6 +95,12 @@ def get_passive_score(experiment, file, n_splits, split_seed, scorer):
     return scores_mean_std
 
 
+def random_sampling(**kwargs):
+    experiment = kwargs.pop("experiment")
+    train_idx = kwargs.pop("train_idx")
+    return select_random(train_idx, experiment.model.rng)
+
+
 def least_confident_idx(**kwargs):
     """
     Get the index of the example closest to the decision boundary.

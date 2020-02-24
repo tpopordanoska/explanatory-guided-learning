@@ -21,6 +21,7 @@ class ActiveLearningLoop:
         self.annotated_point = {}
 
         self.METHODS = {
+            "random": lambda  **kwargs: random_sampling(**kwargs),
             "al_least_confident": lambda **kwargs: least_confident_idx(**kwargs),
             "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
             "egl": lambda **kwargs: self.explanatory_guided(**kwargs)
