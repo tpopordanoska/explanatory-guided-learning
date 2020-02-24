@@ -46,7 +46,7 @@ class SVM(Learner):
                 random_state=self.rng)
 
         elif name == "default":
-            model = SVC()
+            model = SVC(random_state=self.rng)
 
         elif name == 'l1svm':
             model = LinearSVC(
@@ -73,26 +73,27 @@ class RandomForrest(Learner):
     def __init__(self, name="Random Forrest Classifier", rng=None):
         super().__init__(name, rng)
 
-        self._model = RandomForestClassifier()
+        self._model = RandomForestClassifier(n_estimators=100, random_state=rng)
 
 
 class NeuralNetwork(Learner):
-    def __init__(self, name="MLPClassifier", rng=None):
+    def __init__(self, name="Multilayer Perceptron", rng=None):
         super().__init__(name, rng)
 
-        self._model = MLPClassifier()
+        self._model = MLPClassifier(random_state=rng, alpha=0.1)
 
 
 class LogRegression(Learner):
     def __init__(self, name='Logistic Regression', rng=None):
         super().__init__(name, rng)
 
-        self._model = LogisticRegression()
+        self._model = LogisticRegression(random_state=rng)
 
 
 class GradientBoosting(Learner):
-    def __init__(self, name="Gradient Boosting", rng=None):
+    def __init__(self, name="Gradient Boosting Classifier", rng=None):
         super().__init__(name, rng)
 
-        self._model = GradientBoostingClassifier()
+        self._model = GradientBoostingClassifier(random_state=rng)
+
 
