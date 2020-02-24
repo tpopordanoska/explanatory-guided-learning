@@ -34,15 +34,18 @@ class German(Experiment):
         full_pipeline = FeatureUnion([("num_pipe", num_pipeline), ("cat_pipeline", cat_pipeline)])
 
         # Binarize the y output for easier use -> 0 = 'bad' credit; 1 (700) = 'good' credit
-        # target values: 700 1s = Good, 300 2s (changed to 0) = Bad
-        y = dataset['classification'].map({1: 1, 2: 0}).to_numpy()
+        # target values: 700 1s (changed to 0) = Good, 300 2s (changed to 1) = Bad
+        y = dataset['classification'].map({1: 0, 2: 1}).to_numpy()
 
         # creating the feature vector
         X = dataset.drop('classification', axis=1)
 
+        num_attributes = X.select_dtypes(include=['int64']).columns
+        X = X[num_attributes]
+
         column_names = ['Col_' + str(i) for i in range(0, X.shape[1])]
-        super().__init__(model, X, y, feature_names=column_names, name="German", metric="auc",
-                         prop_known=0.01, rng=model.rng, normalizer=full_pipeline)
+        super().__init__(model, X.to_numpy(), y, feature_names=column_names, name="German", metric="auc",
+                         prop_known=0.01, rng=model.rng, normalizer=StandardScaler())
 
 
 class ColumnsSelector(BaseEstimator, TransformerMixin):

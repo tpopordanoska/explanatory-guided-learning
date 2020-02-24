@@ -44,6 +44,8 @@ class Adult(Experiment):
         y = dataset['income'].to_numpy()
         # creating the feature vector
         X = dataset.drop('income', axis=1)
+        num_attributes = X.select_dtypes(include=['int64']).columns
+        X = X[num_attributes]
 
         sampled_idx, _ = list(StratifiedShuffleSplit(n_splits=2, train_size=0.1, random_state=0).split(X, y))[0]
         X, y = X.iloc[sampled_idx], y[sampled_idx]
@@ -51,8 +53,8 @@ class Adult(Experiment):
         column_names = ['Col_' + str(i) for i in range(0, X.shape[1])]
 
         #After resampling with train_size = 0.1: total 3256 examples, 784 1s, 2472 0s
-        super().__init__(model, X, y, feature_names=column_names, name="Adult", prop_known=0.01, rng=model.rng,
-                         normalizer=full_pipeline)
+        super().__init__(model, X, y, feature_names=column_names, name="Adult", prop_known=0.001, rng=model.rng,
+                         normalizer=StandardScaler())
 
 
 class ColumnsSelector(BaseEstimator, TransformerMixin):
