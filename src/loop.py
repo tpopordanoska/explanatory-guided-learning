@@ -1,4 +1,4 @@
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, f1_score, roc_auc_score
 
 from src.clustering import run_kmedoids
 from src.explanatory_guided_learning import Annotator
