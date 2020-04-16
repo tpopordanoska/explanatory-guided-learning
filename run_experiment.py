@@ -31,7 +31,7 @@ plots_off = True
 methods = ["random", "al_least_confident", "sq_random"]
 thetas = [1.0, 0.1, 0.01]
 for theta in thetas:
-    methods.append("egl_{}".format(theta))
+    methods.append("xgl_{}".format(theta))
 
 # List of experiments that will be performed
 experiments = [
@@ -102,8 +102,8 @@ for experiment_name in experiments:
             experiment = EXPERIMENTS[experiment_name](model=model, tiny_clusters=tiny_clusters, balanced_db=balanced_db)
 
             for n_clusters in n_clusters_list:
-                learning_loop = ActiveLearningLoop(experiment, n_clusters, max_iter, model_path, file, plots_off, thetas,
-                                                   use_weights=use_weights, use_labels=use_labels)
+                learning_loop = LearningLoop(experiment, n_clusters, max_iter, model_path, file, plots_off,
+                                             use_weights=use_weights, use_labels=use_labels)
 
                 # Split the data into labeled and unlabeled
                 folds = experiment.split(prop_known=experiment.prop_known, n_splits=n_folds, split_seed=split_seed)

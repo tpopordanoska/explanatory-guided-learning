@@ -37,7 +37,6 @@ class SVM(Learner):
     def __init__(self, name='svm', rng=None, gamma='scale', C=1):
         super().__init__(name, rng)
 
-        model = None
         if name == 'svm':
             model = LinearSVC(
                 penalty='l2',

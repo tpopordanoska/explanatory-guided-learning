@@ -5,7 +5,6 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_val_score
 
 from .experiments import *
-from .normalizer import *
 
 
 def create_folders():
@@ -95,58 +94,10 @@ def get_passive_score(experiment, file, n_splits, split_seed, scorer):
     return scores_mean_std
 
 
-def random_sampling(**kwargs):
-    experiment = kwargs.pop("experiment")
-    train_idx = kwargs.pop("train_idx")
-    return select_random(train_idx, experiment.model.rng)
-
-
-def least_confident_idx(**kwargs):
-    """
-    Get the index of the example closest to the decision boundary.
-
-    :param kwargs: Keyword arguments
-
-    :return: The index (in X) of the least confident example
-    """
-    experiment = kwargs.pop("experiment")
-    known_idx = kwargs.pop("known_idx")
-    train_idx = kwargs.pop("train_idx")
-    X_known = get_from_indexes(experiment.X, known_idx)
-    X_train = get_from_indexes(experiment.X, train_idx)
-
-    _, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
-
-    if hasattr(experiment.model._model, "decision_function"):
-        margins = np.abs(experiment.model.decision_function(X_train_norm))
-    elif hasattr(experiment.model._model, "predict_proba"):
-        probs = experiment.model.predict_proba(X_train_norm)
-        margins = np.sum(probs * np.log(probs), axis=1).ravel()
-    else:
-        raise AttributeError("Model with either decision_function or predict_proba method")
-
-    if len(margins) == 0:
-        return None
-    return train_idx[np.argmin(margins)]
-
-
 def get_from_indexes(X, indexes):
     if isinstance(X, pd.DataFrame):
         return X.iloc[indexes]
     return X[indexes]
-
-
-def select_by_coordinates(x, y, data):
-    """
-    Get the index of the element in the data, if found
-
-    :param x: The x coordinate
-    :param y: The y coordinate
-    :param data: The data to find the element by coordinates from
-    :return: The index of the found element
-    """
-    # TODO: take care of element not found and fix [][]
-    return [np.where((data[:, 0] == x) & (data[:, 1] == y))[0][0]]
 
 
 def select_random(data, rng):
@@ -159,22 +110,3 @@ def select_random(data, rng):
     :return: A random element from the data
     """
     return rng.choice(data)
-
-
-def concatenate_data(X_train, y_train, X_unlabeled, y_unlabeled, y_pred):
-    """
-    Concatenate the given data in one matrix with three columns.
-
-    :param X_train: The coordinates of the points of the first data matrix
-    :param y_train: The labels of the points from the first data matrix
-    :param X_unlabeled: The coordinates of the points of the second data matrix
-    :param y_unlabeled: The labels of the points from the second data matrix
-    :param y_pred: The predictions of the unlabeled points
-
-    :return: One matrix containing the features, the predictions and the true labels
-    """
-    Xy_train = np.concatenate((X_train, np.array([y_train]).T), axis=1)
-    Xy_unlabeled = np.concatenate((X_unlabeled, np.array([y_pred]).T), axis=1)
-    Xy = np.concatenate((Xy_train, Xy_unlabeled), axis=0)
-    true_labels = np.concatenate((y_train, y_unlabeled))
-    return np.concatenate((Xy, np.array([true_labels]).T), axis=1)

@@ -1,33 +1,10 @@
 from pyclustering.cluster.kmedoids import kmedoids
-from sklearn.cluster import KMeans
 
 from .plotting import *
 
 
-def run_kmeans(points, n_clusters=2, use_labels="True"):
-    """
-    Runs k-means algorithm on the given points with the given number of clusters and plot the centroids.
-
-    :param points: The dataset.
-    :param n_clusters: The number of clusters to be found in the data.
-    :param use_labels: Whether to use the labels of the points as an attribute.
-
-    """
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
-    if use_labels:
-        kmeans.fit_predict(points)
-    else:
-        kmeans.fit_predict(points[:, 0:2])
-
-    # Plot the centroids
-    centroids = kmeans.cluster_centers_
-    plt.scatter(centroids[:, 0], centroids[:, 1], marker='x', s=169, linewidths=3, color='red', zorder=10)
-    plt.scatter(points[:, 0], points[:, 1], c=points[:, 2])
-    plt.title("K-Means")
-    plt.show()
-
-
-def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", use_weights="False", path=None, plots_off=True):
+def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False",
+                 use_weights="False", path=None, plots_off=True):
     """
     Run kmedoids algorithm on the given points with the given number of clusters and plot the centroids.
 
@@ -35,7 +12,7 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
     :param n_clusters: The number of clusters to be found in the data
     :param other_points: Other points (ex. wrongly classified) to plot instead of the points used to find clusters
     :param use_labels: Whether to use the labels of the points as an attribute
-    :param use_weights: Whether to weight the labels by the number of other attributes
+    :param use_weights: Whether to weigh the labels by the number of other attributes
     :param path: The path to the folder where the graphs will be saved
     :param plots_off: Whether to plot the graphs
 
@@ -73,7 +50,7 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False", u
         plt.ylim(points[:, 1].min() - 0.1, points[:, 1].max() + 0.1)
         xx, yy = create_meshgrid(points)
 
-        # Obtain labels for each point in mesh. Use last trained model.
+        # Obtain labels for each point in mesh.
         Z = kmedoids_instance.predict((np.c_[xx.ravel(), yy.ravel()]))
         Z = Z.reshape(xx.shape)
 

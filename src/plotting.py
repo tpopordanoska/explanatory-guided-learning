@@ -4,6 +4,7 @@ from matplotlib.pyplot import figure
 from sklearn.manifold import TSNE
 from sklearn.neighbors import KNeighborsClassifier
 
+from .normalizer import *
 from .utils import *
 
 sns.set()
@@ -134,7 +135,8 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
         if y_pred is not None:
             wrong_points = X_train_norm[np.where(y_pred != y_train)]
             plt.scatter(X_train_norm[:, 0], X_train_norm[:, 1], c=y_pred, cmap=plt.cm.RdBu_r, s=45)
-            plt.scatter(wrong_points[:, 0], wrong_points[:, 1], s=120, cmap=plt.cm.RdBu_r, facecolors='none', edgecolors='green', linewidths=2)
+            plt.scatter(wrong_points[:, 0], wrong_points[:, 1], s=120, cmap=plt.cm.RdBu_r, facecolors='none',
+                        edgecolors='green', linewidths=2)
         else:
             plt.scatter(X_train_norm[:, 0], X_train_norm[:, 1], c=y_train, cmap=plt.cm.RdBu_r, s=45)
             plt.scatter(X_known_norm[:, 0], X_known_norm[:, 1], c=y_known, cmap=plt.cm.RdBu_r, s=45,
@@ -151,7 +153,8 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
         plt.xlim(X_known_train_norm[:, 0].min() - 0.1, X_known_train_norm[:, 0].max() + 0.1)
         plt.ylim(X_known_train_norm[:, 1].min() - 0.1, X_known_train_norm[:, 1].max() + 0.1)
         if path:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png', bbox_inches='tight')
+            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png',
+                        bbox_inches='tight')
         else:
             plt.show()
         plt.close()
@@ -175,7 +178,8 @@ def plot_points(X, y, title="", path=None):
     # plt.title(title)
     # plt.axis("off")
     if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png', bbox_inches='tight')
+        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png',
+                    bbox_inches='tight')
     else:
         plt.show()
     plt.close()
@@ -185,7 +189,8 @@ def get_tsne_embedding(X):
     return TSNE(n_components=2, n_iter=300, random_state=0).fit_transform(X)
 
 
-def plot_results(scores_dict, scores_test_dict, annotated_point, n_folds, experiment, split_seed, scorer, file, path, max_iter):
+def plot_results(scores_dict, scores_test_dict, annotated_point, n_folds, experiment,
+                 split_seed, scorer, file, path, max_iter):
     """
     Plot the performance graphs.
 
@@ -199,7 +204,7 @@ def plot_results(scores_dict, scores_test_dict, annotated_point, n_folds, experi
     :param file: The output file
     :param path: The path of the folder where the plot will be saved
     :param max_iter: The maximal iteration, used for the
-    :return:
+
     """
 
     score_passive = get_passive_score(experiment, file, n_folds, split_seed, scorer)
@@ -231,7 +236,7 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
     :param scores: Dictionary containing the accuracy scores for each method
     :param stds: Dictionary containing the standard deviations for each method
     :param score_passive: The f1 score of the experiment in a passive setting
-    :param annotated_dict: Dictionary containing the point where we switch to random sampling in EGL
+    :param annotated_dict: Dictionary containing the point where we switch to random sampling in XGL
     :param img_title: The title of the image saved
     :param plot_title: The title of the plot
     :param path: The path of the folder where the plot will be saved
@@ -247,12 +252,12 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
         "random": "Random sampling",
         "al_least_confident": "Active Learning",
         "sq_random": "Guided Learning",
-        "egl_100.0": "XGL (theta=100)",
-        "egl_5": "XGL (theta=5)",
-        "egl_10.0": "XGL (theta=10)",
-        "egl_1.0": "XGL (theta=1)",
-        "egl_0.1": "XGL (theta=0.1)",
-        "egl_0.01": "XGL (theta=0.01)",
+        "xgl_100.0": "XGL (theta=100)",
+        "xgl_5": "XGL (theta=5)",
+        "xgl_10.0": "XGL (theta=10)",
+        "xgl_1.0": "XGL (theta=1)",
+        "xgl_0.1": "XGL (theta=0.1)",
+        "xgl_0.01": "XGL (theta=0.01)",
         "10": "10 prototypes",
         "30": "30 prototypes",
         "50": "50 prototypes",

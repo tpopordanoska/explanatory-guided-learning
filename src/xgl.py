@@ -6,9 +6,10 @@ from src import select_random
 
 class Annotator:
     """
-    Class containing methods for the explanatory_guided query selection strategy.
+    Class containing methods for the explanatory guided query selection strategy.
     """
-    def select_from_worst_cluster(self, pd_points, clusters, train_idx, theta, rng, file=None):
+    @staticmethod
+    def select_from_worst_cluster(pd_points, clusters, train_idx, theta, rng, file=None):
         """
         Select index of the point to be labeled from the cluster containing largest number of wrong points.
 
@@ -60,25 +61,6 @@ class Annotator:
         query_idx = int(pd_points.iloc[closest_wrong_idx].idx)
         return wrong_points, query_idx
 
-    def select_closest(self, pd_points, clusters):
-        """
-        Select index of the point which lies closest to a centroid.
-
-        :param pd_points: Pandas DataFrame containing the features, the predictions and the true labels of the points
-        :param clusters:
-        :return:
-        """
-        wrong_points, clusters_lookup, lookup = find_wrong_points(pd_points, clusters)
-        if len(wrong_points) == 0:
-            return [], None
-        # Find the proximity to the closest centroid found with k-medoids for each wrongly classified point
-        distances = dist_to_centroid(lookup, clusters_lookup, pd_points)
-
-        closest_wrong_idx = min(distances, key=distances.get)
-        # Sort them and return the wrongly classified example closest to a centorid
-        query_idx = int(pd_points.iloc[closest_wrong_idx].idx)
-        return wrong_points, query_idx
-
 
 def find_wrong_points(pd_points, clusters):
     """
@@ -91,21 +73,10 @@ def find_wrong_points(pd_points, clusters):
     """
     # Find the points where predictions are wrong
     wrong_points = pd_points[pd_points.labels != pd_points.predictions]
-    clusters_lookup = create_clusters_lookup(clusters)
+    clusters_lookup = {i: cluster for i, cluster in enumerate(clusters)}
     lookup = create_lookup(wrong_points.index, clusters_lookup)
 
     return wrong_points, clusters_lookup, lookup
-
-
-def create_clusters_lookup(clusters):
-    """
-    Create lookup for the clusters: the value for each key is an array of indexes of the points in the cluster.
-
-    :param clusters: Clusters represented as arrays of indexes of points
-
-    :return: The lookup
-    """
-    return {i: cluster for i, cluster in enumerate(clusters)}
 
 
 def create_lookup(points, clusters_lookup):
@@ -129,26 +100,5 @@ def create_lookup(points, clusters_lookup):
                     lookup[key].append(point)
                     break
     return lookup
-
-
-def dist_to_centroid(lookup, clusters_lookup, pd_points):
-    """
-    Calculate distance from each wrongly classified point to the centroid of the cluster that it belongs to.
-
-    :param lookup: Lookup for the wrong points
-    :param clusters_lookup: Lookup for the clusters
-    :param pd_points: The data
-
-    :return: A dictionary containing the calculated distances for each wrongly classified point to the centroid
-    """
-    distances = {}
-    # Remove the unnecessary columns (labels and predictions)
-    pd_points_features = pd_points.drop(columns=["labels", "predictions", "idx"])
-    for (key, value) in lookup.items():
-        for element in value:
-            centroid = clusters_lookup[key][0]
-            # Calculate euclidean distance on the features
-            distances[element] = distance.euclidean(pd_points_features.iloc[element], pd_points_features.iloc[centroid])
-    return distances
 
 
