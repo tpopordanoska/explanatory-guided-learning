@@ -20,8 +20,8 @@ def create_meshgrid(points, h=0.1):
 
     :return: The mesh grid to plot in
     """
-    x_min, x_max = points[:, 0].min() - 1, points[:, 0].max() + 1
-    y_min, y_max = points[:, 1].min() - 1, points[:, 1].max() + 1
+    x_min, x_max = points[:, 0].min() - 0.1, points[:, 0].max() + 0.1
+    y_min, y_max = points[:, 1].min() - 0.1, points[:, 1].max() + 0.1
     xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
 
     return xx, yy
@@ -229,7 +229,7 @@ def plot_results(scores_dict, scores_test_dict, annotated_point, n_folds, experi
 
 
 def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plot_title="", path=None,
-             scorer="f1_weighted", max_iter="100"):
+             scorer="f1_macro", max_iter="100"):
     """
     Plot the accuracy scores as a function of the queried instances.
 
@@ -258,6 +258,7 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
         "xgl_1.0": "XGL (theta=1)",
         "xgl_0.1": "XGL (theta=0.1)",
         "xgl_0.01": "XGL (theta=0.01)",
+        "rules": "XGL (rules)",
         "10": "10 prototypes",
         "30": "30 prototypes",
         "50": "50 prototypes",
@@ -271,7 +272,7 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
         plt.fill_between(x[:n], score[:n] - stds[key][:n], score[:n] + stds[key][:n], alpha=0.25, linewidth=0, color=colors[i])
         if key in annotated_dict.keys():
             annotated = annotated_dict[key]
-            plt.annotate('start random sampling', xy=(annotated, score[annotated]), xytext=(annotated - 100, score[annotated] - 0.1),
+            plt.annotate('start random sampling', xy=(annotated, score[annotated]), xytext=(annotated - 10, score[annotated] - 0.1),
                          arrowprops=dict(color="black", arrowstyle="->", connectionstyle="arc3"))
 
     x = np.arange(len(max(scores.values(), key=lambda value: len(value))))

@@ -1,8 +1,9 @@
 from sklearn.metrics import classification_report, f1_score, roc_auc_score
+from skrules import SkopeRules
 
 from src.clustering import run_kmedoids
-from src.xgl import Annotator
 from src.plotting import *
+from src.xgl import Annotator
 
 
 class LearningLoop:
@@ -23,7 +24,8 @@ class LearningLoop:
             "random": lambda  **kwargs: self.random_sampling(**kwargs),
             "al_least_confident": lambda **kwargs: self.least_confident_idx(**kwargs),
             "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
-            "xgl": lambda **kwargs: self.xgl_clustering(**kwargs)
+            "xgl": lambda **kwargs: self.xgl_clustering(**kwargs),
+            "rules": lambda **kwargs: self.xgl_rules(**kwargs),
         }
 
     def random_sampling(self, **kwargs):
@@ -140,6 +142,78 @@ class LearningLoop:
 
         return query_idx
 
+    def xgl_rules(self, **kwargs):
+        """
+        Find index of the query to be labeled with the XGL strategy using global surrogate model (decision trees).
+
+        :param kwargs: Keyword arguments
+
+        :return: The index of the query (in X) to be labeled
+        """
+        train_idx = kwargs.pop("train_idx")
+        known_idx = kwargs.pop("known_idx")
+        y_pred = kwargs.pop("y_pred")
+
+        X_train = get_from_indexes(self.experiment.X, train_idx)
+        X_known = get_from_indexes(self.experiment.X, known_idx)
+        X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+
+        X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
+        y_known_predicted = np.concatenate((self.experiment.y[known_idx], y_pred), axis=0)
+        X_train_pd = pd.DataFrame(data=X_train_norm)
+        X_train_pd['predictions'] = y_pred
+        X_train_pd['labels'] = self.experiment.y[train_idx]
+        X_train_pd["idx"] = train_idx
+
+        clf = SkopeRules(n_estimators=10,
+                         precision_min=0.8,
+                         recall_min=0.15,
+                         max_depth=5,
+                         random_state=self.experiment.rng,
+                         feature_names=self.experiment.feature_names)
+
+        self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
+        clf.fit(X_known_train, y_known_predicted)
+        # TODO: Sort by f1:  (2 * x[1][0] * x[1][1]) / (x[1][0] + x[1][1])
+        clf.rules_.sort(key=lambda x: x[1][0], reverse=True)
+        # Each element in rules_ is a tuple (rule, precision, recall, nb).
+        # nb = the number of time that this rule was extracted from the trees built during skope-rules' fitting
+        if not clf.rules_:
+            return select_random(train_idx, self.experiment.rng)
+        print("Best rule: ", clf.rules_[0])
+        print("Number of extracted rules: ", len(clf.rules_))
+        # self.plot_rules(clf, X_known_train, y_known_predicted)
+
+        if len(clf.rules_) <= self.no_clusters:
+            worst_rule = clf.rules_[-1]
+        else:
+            worst_rule = clf.rules_[self.no_clusters]
+
+        # Find the points that satisfy the chosen rule
+        points_idx = self.get_points_satisfying_rule(X_train_norm, worst_rule[0]).index
+        points_pd = X_train_pd.iloc[points_idx]
+        # From those, find the ones that are wrongly classified
+        wrong_points_idx = points_pd[points_pd.labels != points_pd.predictions].idx
+
+        if len(wrong_points_idx) == 0:
+            return select_random(train_idx, self.experiment.rng)
+
+        return select_random(wrong_points_idx, self.experiment.rng)
+
+    def plot_rules(self, clf, X, y):
+
+        xx, yy = create_meshgrid(X, 0.05)
+        Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z.reshape(xx.shape)
+        figure()
+        plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
+        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+        plt.show()
+
+    def get_points_satisfying_rule(self, X, rule):
+        X = pd.DataFrame(X, columns=self.experiment.feature_names)
+        return X.query(rule)
+
     def move(self, known_idx, train_idx, query_idx):
         """
         Move the selected query from the train to the known dataset.
@@ -221,7 +295,7 @@ class LearningLoop:
         :return: The score
         """
 
-        score = f1_score(y_true, y_pred, average='weighted')
+        score = f1_score(y_true, y_pred, average='macro')
         if self.file is not None:
             self.file.write("F1 score: {}\n".format(score))
             self.file.write(classification_report(y_true, y_pred))

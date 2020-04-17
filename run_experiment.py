@@ -28,7 +28,7 @@ n_folds = 10
 n_clusters_list = [10]
 plots_off = True
 # List of sampling strategies
-methods = ["random", "al_least_confident", "sq_random"]
+methods = ["random", "al_least_confident", "sq_random", "rules"]
 thetas = [1.0, 0.1, 0.01]
 for theta in thetas:
     methods.append("xgl_{}".format(theta))
@@ -43,7 +43,7 @@ experiments = [
     "adult"
 ]
 scorers = [
-    "f1_weighted",
+    "f1_macro",
     "roc_auc"
 ]
 

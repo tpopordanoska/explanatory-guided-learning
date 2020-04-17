@@ -2,7 +2,6 @@ import numpy as np
 from scipy.spatial import distance
 from sklearn.datasets.samples_generator import make_blobs
 
-from src.learners import *
 from .experiment import Experiment
 
 
