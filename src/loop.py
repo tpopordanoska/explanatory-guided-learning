@@ -1,4 +1,4 @@
-from sklearn.metrics import classification_report, f1_score, roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score
 from skrules import SkopeRules
 
 from src.clustering import run_kmedoids
@@ -19,6 +19,10 @@ class LearningLoop:
         self.use_labels = use_labels
         self.query_array = []
         self.annotated_point = {}
+        self.scores_f1 = []
+        self.test_scores_f1 = []
+        self.scores_auc = []
+        self.test_scores_auc = []
 
         self.METHODS = {
             "random": lambda  **kwargs: self.random_sampling(**kwargs),
@@ -55,9 +59,9 @@ class LearningLoop:
 
         _, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
 
-        if hasattr(experiment.model._model, "decision_function"):
+        if hasattr(experiment.model.sklearn_model, "decision_function"):
             margins = np.abs(experiment.model.decision_function(X_train_norm))
-        elif hasattr(experiment.model._model, "predict_proba"):
+        elif hasattr(experiment.model.sklearn_model, "predict_proba"):
             probs = experiment.model.predict_proba(X_train_norm)
             margins = np.sum(probs * np.log(probs), axis=1).ravel()
         else:
@@ -150,68 +154,161 @@ class LearningLoop:
 
         :return: The index of the query (in X) to be labeled
         """
-        train_idx = kwargs.pop("train_idx")
-        known_idx = kwargs.pop("known_idx")
-        y_pred = kwargs.pop("y_pred")
+        train_idx = kwargs.get("train_idx")
+        known_idx = kwargs.get("known_idx")
 
         X_train = get_from_indexes(self.experiment.X, train_idx)
         X_known = get_from_indexes(self.experiment.X, known_idx)
         X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
 
         X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
-        y_known_predicted = np.concatenate((self.experiment.y[known_idx], y_pred), axis=0)
-        X_train_pd = pd.DataFrame(data=X_train_norm)
-        X_train_pd['predictions'] = y_pred
-        X_train_pd['labels'] = self.experiment.y[train_idx]
-        X_train_pd["idx"] = train_idx
+        y_predicted = self.experiment.model.predict(X_known_train)
 
-        clf = SkopeRules(n_estimators=10,
-                         precision_min=0.8,
-                         recall_min=0.15,
-                         max_depth=5,
-                         random_state=self.experiment.rng,
-                         feature_names=self.experiment.feature_names)
+        # Create a dataframe holding the known and train data with their predictions, labels and indexes in X
+        X_known_train_pd = pd.DataFrame(data=X_known_train, columns=self.experiment.feature_names)
+        X_known_train_pd['is_train'] = np.concatenate([[False] * len(known_idx), [True] * len(train_idx)])
+        X_known_train_pd['predictions'] = y_predicted
+        X_known_train_pd['labels'] = np.concatenate([self.experiment.y[known_idx], self.experiment.y[train_idx]])
+        X_known_train_pd["idx_in_X"] = np.concatenate([known_idx, train_idx])
+        X_train_pd = X_known_train_pd[X_known_train_pd["is_train"]]
 
-        self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
-        clf.fit(X_known_train, y_known_predicted)
-        # TODO: Sort by f1:  (2 * x[1][0] * x[1][1]) / (x[1][0] + x[1][1])
-        clf.rules_.sort(key=lambda x: x[1][0], reverse=True)
-        # Each element in rules_ is a tuple (rule, precision, recall, nb).
-        # nb = the number of time that this rule was extracted from the trees built during skope-rules' fitting
-        if not clf.rules_:
-            return select_random(train_idx, self.experiment.rng)
-        print("Best rule: ", clf.rules_[0])
-        print("Number of extracted rules: ", len(clf.rules_))
-        # self.plot_rules(clf, X_known_train, y_known_predicted)
+        X_known_train_features = X_known_train_pd.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
 
-        if len(clf.rules_) <= self.no_clusters:
-            worst_rule = clf.rules_[-1]
-        else:
-            worst_rule = clf.rules_[self.no_clusters]
+        column_names = self.experiment.feature_names
+        if X_known_train_features.shape[1] != len(column_names):
+            column_names = ['Col_' + str(i) for i in range(0, X_known_train_features.shape[1])]
+
+        n_estimators = [5, 10, 20, 35, 50]
+        num_features = len(self.experiment.feature_names)
+        max_depth = num_features * 2 if num_features < 5 else num_features
+        for n_estim in n_estimators:
+            clf = SkopeRules(n_estimators=n_estim,
+                             precision_min=0.4,
+                             recall_min=0.01,
+                             max_depth=max_depth,
+                             max_features=None,
+                             max_samples=1.0,
+                             max_depth_duplication=n_estim,
+                             random_state=self.experiment.rng,
+                             feature_names=column_names)
+
+            clf.fit(X_known_train_features, X_known_train_pd['predictions'])
+            if self.compare_performance(clf, 0.2, **kwargs):
+                break
+
+        # Get the worst rule
+        worst_rule = self.get_worst_rule(X_known_train_pd, clf)
 
         # Find the points that satisfy the chosen rule
-        points_idx = self.get_points_satisfying_rule(X_train_norm, worst_rule[0]).index
-        points_pd = X_train_pd.iloc[points_idx]
-        # From those, find the ones that are wrongly classified
-        wrong_points_idx = points_pd[points_pd.labels != points_pd.predictions].idx
+        points_pd = self.get_points_satisfying_rule(X_train_pd, worst_rule[0])
+        # From those, find the ones that are wrongly classified wrt the rules
+        points_predictions = np.ones(len(points_pd)) * worst_rule[1]
+        wrong_points_idx = points_pd[points_pd.labels != points_predictions]["idx_in_X"]
 
         if len(wrong_points_idx) == 0:
             return select_random(train_idx, self.experiment.rng)
 
         return select_random(wrong_points_idx, self.experiment.rng)
 
-    def plot_rules(self, clf, X, y):
+    def get_data(self, **kwargs):
+        experiment = self.experiment
+        train_idx = kwargs.pop("train_idx")
+        known_idx = kwargs.pop("known_idx")
+        test_idx = kwargs.pop("test_idx")
 
-        xx, yy = create_meshgrid(X, 0.05)
-        Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
-        Z = Z.reshape(xx.shape)
-        figure()
-        plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
-        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
-        plt.show()
+        X_known, y_known = get_from_indexes(experiment.X, known_idx), experiment.y[known_idx]
+        X_train, y_train = get_from_indexes(experiment.X, train_idx), experiment.y[train_idx]
+        X_test, y_test = get_from_indexes(experiment.X, test_idx), experiment.y[test_idx]
+
+        return X_known, y_known, X_train, y_train, X_test, y_test
+
+    def compare_performance(self, clf, threshold, **kwargs):
+        X_known, y_known, X_train, y_train, X_test, y_test = self.get_data(**kwargs)
+        # Normalize the data
+        X_known, X_train, X_test = Normalizer(self.experiment.normalizer).normalize_all(X_known, X_train, X_test)
+
+        # Calculate accuracy wrt the extracted rules
+        y_pred_test_rules = clf.predict(X_test)
+        score_rules = self.calc_acc(y_test, y_pred_test_rules, "f1")
+
+        # Get accuracy of the blackbox classifier
+        iteration = kwargs.get("iteration")
+        score_blackbox = self.scores_f1[iteration]
+
+        return np.abs(score_blackbox - score_rules) < threshold
+
+    def get_worst_rule(self, data, clf):
+        X_known_train_features = data.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
+        predictions = data['predictions']
+        X_train_pd = data[data["is_train"]]
+
+        rules = []
+        for idx, features in enumerate(np.unique(self.experiment.y)):
+            clf.fit(X_known_train_features, predictions == idx)
+            for rule in clf.rules_:
+                # Each element in rules_ is a tuple (rule, precision, recall, nb).
+                # nb = the number of time that this rule was extracted from the trees built during skope-rules' fitting
+                # Get the points in X_train
+                points_pd = self.get_points_satisfying_rule(X_train_pd, rule[0])
+                # if there are no points in X_train that satisfy the rule, skip it
+                if len(points_pd) > 0:
+                    points_predictions = np.ones(len(points_pd)) * idx
+                    score = self.get_f1_score(points_pd.labels, points_predictions)
+                    score_blackbox = self.get_f1_score(points_pd.labels, points_pd.predictions)
+                    # Each element in rules is a tuple (rule, class, f1_score wrt rules, f1_score wrt classifier)
+                    rules.append((rule[0], idx, score, score_blackbox))
+            if not self.plots_off:
+                plot_rules(clf, data, predictions == idx, idx, self.path)
+
+        self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
+        print("Number of extracted rules: ", len(rules))
+
+        # Sort by the f1_score wrt the rules
+        rules.sort(key=lambda x: x[2], reverse=True)
+        return rules[-1]
+
+    def plot_rules(clf, X, y, title="", path=None):
+        if X.shape[1] > 2:
+            plot_rules_tsne(clf, X, y, title, path)
+        else:
+            figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+            xx, yy = create_meshgrid(X, 0.005)
+            Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+            Z = Z.reshape(xx.shape)
+            plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
+            plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+            plt.title(title)
+            if path:
+                plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png",
+                            bbox_inches='tight')
+            else:
+                plt.show()
+            plt.close()
+
+    def plot_rules_tsne(clf, X, y, title, path):
+        X_embedded = get_tsne_embedding(X)
+        h = 10
+        x_min, x_max = X_embedded[:, 0].min() - 1, X_embedded[:, 0].max() + 1
+        y_min, y_max = X_embedded[:, 1].min() - 1, X_embedded[:, 1].max() + 1
+        xx, yy = np.meshgrid(np.linspace(x_min, x_max, h), np.linspace(y_min, y_max, h))
+        # approximate Voronoi tesselation on resolution x resolution grid using 1-NN
+        background_model = KNeighborsClassifier(n_neighbors=1).fit(X_embedded, y)
+        voronoiBackground = background_model.predict(np.c_[xx.ravel(), yy.ravel()])
+        voronoiBackground = voronoiBackground.reshape((h, h))
+
+        plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+        plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
+        plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+
+        plt.title(title)
+        if path:
+            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png",
+                        bbox_inches='tight')
+        else:
+            plt.show()
+        plt.close()
 
     def get_points_satisfying_rule(self, X, rule):
-        X = pd.DataFrame(X, columns=self.experiment.feature_names)
         return X.query(rule)
 
     def move(self, known_idx, train_idx, query_idx):
@@ -237,18 +334,13 @@ class LearningLoop:
 
         return known_idx, train_idx
 
-    def train_and_get_acc(self, known_idx, train_idx, test_idx, acc_scores_f1, test_acc_scores_f1, acc_scores_auc,
-                          test_acc_scores_auc):
+    def train_and_get_acc(self, known_idx, train_idx, test_idx):
         """
         Train the model and calculate the accuracy.
 
         :param known_idx: The indexes of the known set
         :param train_idx: The indexes of the train set
         :param test_idx: The indexes of the test set
-        :param acc_scores_f1: List containing the f1 accuracy scores on train set
-        :param test_acc_scores_f1: List containing the f1 accuracy scores on test set
-        :param acc_scores_auc: List containing the auc accuracy scores on train set
-        :param test_acc_scores_auc: List containing the auc accuracy scores on train set
 
         :return: The predictions and the lists with the scores
         """
@@ -264,12 +356,12 @@ class LearningLoop:
         y_pred = experiment.model.predict(X_train)
         y_pred_test = experiment.model.predict(X_test)
 
-        acc_scores_f1.append(self.calc_acc(y_train, y_pred, "f1"))
-        test_acc_scores_f1.append(self.calc_acc(y_test, y_pred_test, "f1"))
-        acc_scores_auc.append(self.calc_acc(y_train, y_pred, "auc"))
-        test_acc_scores_auc.append(self.calc_acc(y_test, y_pred_test, "auc"))
+        self.scores_f1.append(self.calc_acc(y_train, y_pred, "f1"))
+        self.test_scores_f1.append(self.calc_acc(y_test, y_pred_test, "f1"))
+        self.scores_auc.append(self.calc_acc(y_train, y_pred, "auc"))
+        self.test_scores_auc.append(self.calc_acc(y_test, y_pred_test, "auc"))
 
-        return y_pred, y_pred_test, acc_scores_f1, test_acc_scores_f1, acc_scores_auc, test_acc_scores_auc
+        return y_pred, y_pred_test
 
     def calc_acc(self, y_true, y_pred, metric="f1"):
         """
@@ -298,10 +390,8 @@ class LearningLoop:
         score = f1_score(y_true, y_pred, average='macro')
         if self.file is not None:
             self.file.write("F1 score: {}\n".format(score))
-            self.file.write(classification_report(y_true, y_pred))
         else:
             print("F1 score: {}\n".format(score))
-            print(classification_report(y_true, y_pred))
         return score
 
     def get_auc_score(self, y_true, y_pred):
@@ -336,6 +426,11 @@ class LearningLoop:
         :return: List of accuracy scores (F1 and AUC) on train and test set
         """
         self.query_array = []
+        self.scores_f1 = []
+        self.test_scores_f1 = []
+        self.scores_auc = []
+        self.test_scores_auc = []
+
         experiment = self.experiment
         theta = ""
         if "xgl" in method:
@@ -343,8 +438,7 @@ class LearningLoop:
             method = "xgl"
 
         # 1. Train a model
-        y_pred, y_pred_test, scores_f1, test_scores_f1, scores_auc, test_scores_auc = \
-            self.train_and_get_acc(known_idx, train_idx, test_idx, [], [], [], [])
+        y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)
 
         for iteration in range(self.max_iter):
             self.file.write("Iteration: {}\n".format(iteration))
@@ -355,6 +449,7 @@ class LearningLoop:
             # 2. Find the index of the query to be labeled
             query_idx = self.METHODS[method](known_idx=known_idx,
                                              train_idx=train_idx,
+                                             test_idx=test_idx,
                                              y_pred=y_pred,
                                              iteration=iteration,
                                              theta=theta)
@@ -362,6 +457,7 @@ class LearningLoop:
             if query_idx is None:
                 break
             self.file.write("Selected point: {}\n".format(get_from_indexes(experiment.X, query_idx)))
+
             if not self.plots_off:
                 plot_decision_surface(experiment,
                                       known_idx,
@@ -374,8 +470,7 @@ class LearningLoop:
             known_idx, train_idx = self.move(known_idx, train_idx, query_idx)
 
             # 4. Retrain the model with the new training set
-            y_pred, y_pred_test, scores_f1, test_scores_f1, scores_auc, test_scores_auc = self.train_and_get_acc(
-                known_idx, train_idx, test_idx, scores_f1, test_scores_f1, scores_auc, test_scores_auc)
+            y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)
 
         # Plot the decision surface
         if not self.plots_off:
@@ -392,4 +487,3 @@ class LearningLoop:
                                   title="Predictions " + experiment.model.name + " " + method,
                                   path=self.path)
 
-        return scores_f1, test_scores_f1, scores_auc, test_scores_auc

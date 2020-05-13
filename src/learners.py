@@ -13,24 +13,24 @@ class Learner:
     """
 
     def __init__(self, name="", rng=None):
-        self._model = None
+        self.sklearn_model = None
         self.name = name
         self.rng = check_random_state(rng)
 
     def get_params(self, deep=True):
-        return self._model.get_params()
+        return self.sklearn_model.get_params()
 
     def fit(self, X, y):
-        self._model.fit(X, y)
+        self.sklearn_model.fit(X, y)
 
     def decision_function(self, X):
-        return self._model.decision_function(X)
+        return self.sklearn_model.decision_function(X)
 
     def predict(self, X):
-        return self._model.predict(X)
+        return self.sklearn_model.predict(X)
 
     def predict_proba(self, X):
-        return self._model.predict_proba(X)
+        return self.sklearn_model.predict_proba(X)
 
 
 class SVM(Learner):
@@ -56,43 +56,46 @@ class SVM(Learner):
                 random_state=self.rng)
 
         else:
-            model = SVC(gamma=gamma, C=C, random_state=self.rng)
+            model = SVC(gamma=gamma, C=C, random_state=self.rng, probability=True)
 
-        self._model = model
+        self.sklearn_model = model
 
 
 class GNB(Learner):
     def __init__(self, name="Gaussian Naive Bayes", rng=None):
         super().__init__(name, rng)
 
-        self._model = GaussianNB()
+        self.sklearn_model = GaussianNB()
 
 
 class RandomForrest(Learner):
-    def __init__(self, name="Random Forrest Classifier", rng=None):
+    def __init__(self, name="Random Forrest Classifier", n_estimators=100, max_features="auto", max_depth=None, rng=None):
         super().__init__(name, rng)
 
-        self._model = RandomForestClassifier(n_estimators=100, random_state=rng)
+        self.sklearn_model = RandomForestClassifier(n_estimators=n_estimators,
+                                                    max_features=max_features,
+                                                    max_depth=max_depth,
+                                                    random_state=rng)
 
 
 class NeuralNetwork(Learner):
     def __init__(self, name="Multilayer Perceptron", rng=None):
         super().__init__(name, rng)
 
-        self._model = MLPClassifier(random_state=rng, alpha=0.1)
+        self.sklearn_model = MLPClassifier(random_state=rng, alpha=0.1)
 
 
 class LogRegression(Learner):
     def __init__(self, name='Logistic Regression', rng=None):
         super().__init__(name, rng)
 
-        self._model = LogisticRegression(random_state=rng)
+        self.sklearn_model = LogisticRegression(random_state=rng)
 
 
 class GradientBoosting(Learner):
-    def __init__(self, name="Gradient Boosting Classifier", rng=None):
+    def __init__(self, name="Gradient Boosting Classifier", rng=None, n_estimators=100):
         super().__init__(name, rng)
 
-        self._model = GradientBoostingClassifier(random_state=rng)
+        self.sklearn_model = GradientBoostingClassifier(random_state=rng, n_estimators=n_estimators)
 
 

@@ -63,7 +63,7 @@ def plot_decision_surface_tsne(experiment, known_idx, train_idx, query_idx, y_pr
     voronoiBackground = background_model.predict(np.c_[xx.ravel(), yy.ravel()])
     voronoiBackground = voronoiBackground.reshape((h, h))
 
-    figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+    plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
     plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
 
     if y_pred is not None:
@@ -121,7 +121,7 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
         xx, yy = create_meshgrid(X_known_train_norm, h)
 
         if soft:
-            if hasattr(model._model, "decision_function"):
+            if hasattr(model.sklearn_model, "decision_function"):
                 Z = model.decision_function(np.c_[xx.ravel(), yy.ravel()])
             else:
                 Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
@@ -155,6 +155,49 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
         if path:
             plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png',
                         bbox_inches='tight')
+        else:
+            plt.show()
+        plt.close()
+
+
+def plot_rules_tsne(clf, X, y, title, path):
+
+    X_embedded = get_tsne_embedding(X)
+    h = 10
+    x_min, x_max = X_embedded[:, 0].min() - 1, X_embedded[:, 0].max() + 1
+    y_min, y_max = X_embedded[:, 1].min() - 1, X_embedded[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, h), np.linspace(y_min, y_max, h))
+    # approximate Voronoi tesselation on resolution x resolution grid using 1-NN
+    background_model = KNeighborsClassifier(n_neighbors=1).fit(X_embedded, y)
+    voronoiBackground = background_model.predict(np.c_[xx.ravel(), yy.ravel()])
+    voronoiBackground = voronoiBackground.reshape((h, h))
+
+    plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+    plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
+    plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+
+    plt.title(title)
+    if path:
+        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png", bbox_inches='tight')
+    else:
+        plt.show()
+    plt.close()
+
+
+def plot_rules(clf, X, y, title="", path=None):
+
+    if X.shape[1] > 2:
+        plot_rules_tsne(clf, X, y, title, path)
+    else:
+        figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+        xx, yy = create_meshgrid(X, 0.005)
+        Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z.reshape(xx.shape)
+        plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
+        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+        plt.title(title)
+        if path:
+            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png", bbox_inches='tight')
         else:
             plt.show()
         plt.close()
@@ -250,7 +293,8 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
     markers = ['o', 'v', 's', 'D', 'p', '*', 'd', '<', '<']
     labels_lookup = {
         "random": "Random sampling",
-        "al_least_confident": "Active Learning",
+        "al_least_confident": "AL (least confident)",
+        "al_density_weighted": "AL (density weighted)",
         "sq_random": "Guided Learning",
         "xgl_100.0": "XGL (theta=100)",
         "xgl_5": "XGL (theta=5)",
@@ -258,6 +302,12 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
         "xgl_1.0": "XGL (theta=1)",
         "xgl_0.1": "XGL (theta=0.1)",
         "xgl_0.01": "XGL (theta=0.01)",
+        "rules_100.0": "XGL_rules (theta=100)",
+        "rules_10.0": "XGL_rules (theta=10)",
+        "rules_1.0": "XGL_rules (theta=1)",
+        "rules_0.1": "XGL_rules (theta=0.1)",
+        "rules_0.01": "XGL rules (theta=0.01)",
+        "rules_hierarchy": "XGL(rules_hierarchy)",
         "rules": "XGL (rules)",
         "10": "10 prototypes",
         "30": "30 prototypes",
@@ -297,3 +347,49 @@ def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plo
     else:
         plt.show()
     plt.close()
+
+
+def running_mean(data, window_width):
+    cumsum = np.cumsum(np.insert(data, 0, 0))
+    return (cumsum[window_width:] - cumsum[:-window_width]) / float(window_width)
+
+
+def moving_average(interval, window_size):
+    window = np.ones(int(window_size))/float(window_size)
+    return np.convolve(interval, window, 'same')
+
+
+def plot_narrative_bias(scores_test_dict, scores_queries_dict, n_folds, path):
+    scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
+    scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
+
+    for method, score in scores_queries_dict_mean.items():
+        img_title = "{}".format(method)
+
+        test_score = scores_test_dict_mean[method]
+        x = np.arange(len(test_score))
+        plt.plot(x, test_score, linewidth=2, markevery=20, label="test")
+        plt.fill_between(x, test_score - scores_test_dict_std[method], test_score + scores_test_dict_std[method], alpha=0.25, linewidth=0)
+
+        x = np.arange(len(score))
+        plt.plot(x, score, linewidth=1, markevery=20, label="queries", alpha=0.7)
+        plt.fill_between(x, score - scores_queries_dict_std[method], score + scores_queries_dict_std[method], alpha=0.25, linewidth=0)
+
+        score_ma = running_mean(score, 10)
+        x = np.arange(len(score_ma))
+        plt.plot(x, score_ma, linewidth=2, markevery=20, label="queries_ma")
+
+        plt.grid(True)
+        plt.xlabel('Number of obtained labels')
+        plt.ylabel("f1_macro")
+        plt.title(method)
+        plt.legend()
+        if path:
+            try:
+                plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + method + '.png')
+            except ValueError:
+                print("Something wrong with plotting")
+
+        else:
+            plt.show()
+        plt.close()

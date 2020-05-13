@@ -64,6 +64,25 @@ def create_model_folder(path, model):
     return path_model
 
 
+def write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
+                  method, n_clusters, n_folds, thetas, use_weights, use_labels):
+    # Write parameters to file
+    file.write('seed, fold {} : #known {}, #train {}, #test {} \n'
+               .format(seed, k + 1, len(known_idx), len(train_idx), len(test_idx)))
+    _, counts_known = np.unique(experiment.y[known_idx], return_counts=True)
+    _, counts_train = np.unique(experiment.y[train_idx], return_counts=True)
+    _, counts_test = np.unique(experiment.y[test_idx], return_counts=True)
+    file.write("Known bincount: {}\n".format(counts_known))
+    file.write("Train bincount: {}\n".format(counts_train))
+    file.write("Test bincount: {}\n".format(counts_test))
+
+    print(method)
+    file.write("Method: {} \n".format(method))
+    file.write("Model: {}\n".format(experiment.model.sklearn_model))
+    file.write("{} clusters, {} folds, {} seed, {} thetas\n".format(n_clusters, n_folds, seed, thetas))
+    file.write("use_weights={}, use_labels={}\n".format(use_weights, use_labels))
+
+
 def get_mean_and_std(scores_dict, n_folds):
     if not scores_dict:
         return {}, {}
@@ -80,7 +99,7 @@ def get_mean_and_std(scores_dict, n_folds):
 
 
 def get_passive_score(experiment, file, n_splits, split_seed, scorer):
-    pipeline = Pipeline([('transformer', experiment.normalizer), ('estimator', experiment.model._model)])
+    pipeline = Pipeline([('transformer', experiment.normalizer), ('estimator', experiment.model.sklearn_model)])
     kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=split_seed)
     scores = cross_val_score(pipeline, experiment.X, experiment.y, cv=kfold, scoring=scorer)
     scores_mean_std = {
