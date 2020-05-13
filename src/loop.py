@@ -159,6 +159,7 @@ class LearningLoop:
         """
         train_idx = kwargs.get("train_idx")
         known_idx = kwargs.get("known_idx")
+        theta = kwargs.get("theta")
 
         X_train = get_from_indexes(self.experiment.X, train_idx)
         X_known = get_from_indexes(self.experiment.X, known_idx)
@@ -200,7 +201,7 @@ class LearningLoop:
                 break
 
         # Get the worst rule
-        worst_rule = self.get_worst_rule(X_known_train_pd, clf)
+        worst_rule = self.get_worst_rule(X_known_train_pd, theta, clf)
 
         if hierarchy:
             # Find the points that satisfy the chosen rule
@@ -210,7 +211,7 @@ class LearningLoop:
             if not all(element == kt_predictions[0] for element in kt_predictions):
                 # Get worst rule from the new points
                 print("Hierarchical rule selection")
-                worst_rule = self.get_worst_rule(points_known_train_pd, clf)
+                worst_rule = self.get_worst_rule(points_known_train_pd, theta, clf)
                 X_train_pd = points_known_train_pd[points_known_train_pd["is_train"]]
 
         # Find the points that satisfy the chosen rule
@@ -251,7 +252,7 @@ class LearningLoop:
 
         return np.abs(score_blackbox - score_rules) < threshold
 
-    def get_worst_rule(self, data, clf):
+    def get_worst_rule(self, data, theta, clf):
         X_known_train_features = data.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
         predictions = data['predictions']
         X_train_pd = data[data["is_train"]]
@@ -279,48 +280,13 @@ class LearningLoop:
 
         # Sort by the f1_score wrt the rules
         rules.sort(key=lambda x: x[2], reverse=True)
-        return rules[-1]
 
-    def plot_rules(clf, X, y, title="", path=None):
-        if X.shape[1] > 2:
-            plot_rules_tsne(clf, X, y, title, path)
-        else:
-            figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-            xx, yy = create_meshgrid(X, 0.005)
-            Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
-            Z = Z.reshape(xx.shape)
-            plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
-            plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
-            plt.title(title)
-            if path:
-                plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png",
-                            bbox_inches='tight')
-            else:
-                plt.show()
-            plt.close()
+        logits = [x[2] for x in rules]
+        exps = [np.exp(i * theta - max(logits)) for i in logits]
+        softmax = [j / sum(exps) for j in exps]
+        selected_rule_idx = self.experiment.rng.choice(len(rules), p=softmax)
 
-    def plot_rules_tsne(clf, X, y, title, path):
-        X_embedded = get_tsne_embedding(X)
-        h = 10
-        x_min, x_max = X_embedded[:, 0].min() - 1, X_embedded[:, 0].max() + 1
-        y_min, y_max = X_embedded[:, 1].min() - 1, X_embedded[:, 1].max() + 1
-        xx, yy = np.meshgrid(np.linspace(x_min, x_max, h), np.linspace(y_min, y_max, h))
-        # approximate Voronoi tesselation on resolution x resolution grid using 1-NN
-        background_model = KNeighborsClassifier(n_neighbors=1).fit(X_embedded, y)
-        voronoiBackground = background_model.predict(np.c_[xx.ravel(), yy.ravel()])
-        voronoiBackground = voronoiBackground.reshape((h, h))
-
-        plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-        plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
-        plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
-
-        plt.title(title)
-        if path:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png",
-                        bbox_inches='tight')
-        else:
-            plt.show()
-        plt.close()
+        return rules[selected_rule_idx]
 
     def xgl_rules_hierarchy(self, **kwargs):
         """
@@ -468,6 +434,9 @@ class LearningLoop:
         if "xgl" in method:
             theta = float(method.split("_")[1])
             method = "xgl"
+        elif "rules" in method:
+            theta = float(method.split("_")[-1])
+            method = "rules"
 
         # 1. Train a model
         y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)

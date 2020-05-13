@@ -37,6 +37,7 @@ methods = ["random", "al_least_confident", "sq_random", "rules", "rules_hierarch
 thetas = [1.0, 0.1, 0.01]
 for theta in thetas:
     methods.append("xgl_{}".format(theta))
+    methods.append("rules_{}".format(theta))
 
 # List of experiments that will be performed
 experiments = [
