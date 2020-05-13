@@ -3,15 +3,15 @@ from scipy.spatial import distance
 from sklearn.datasets.samples_generator import make_blobs
 
 from .experiment import Experiment
+from ..learners import *
 
 
 class Synthetic(Experiment):
     def __init__(self, **kwargs):
-        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
         balanced_db = kwargs.pop("balanced_db")
         tiny_clusters = kwargs.pop("tiny_clusters")
-
-        rng = model.rng
+        model = SVM(name='SVM (gamma=100, C=100)', gamma=100, C=100)
 
         # Generate mock data with balanced number of positive and negative examples
         X_pos, y_pos = self.generate_positive(0.5, 5, 20)
@@ -30,7 +30,7 @@ class Synthetic(Experiment):
             cluster_std = 1
 
             X_pos_add, _ = make_blobs(n_samples=n_samples, cluster_std=cluster_std, centers=centers, n_features=2,
-                                      random_state=model.rng)
+                                      random_state=rng)
             X_pos = np.concatenate((X_pos, X_pos_add), axis=0)
             y_pos = np.concatenate((y_pos, np.ones((len(X_pos_add)), dtype=int)), axis=0)
 
@@ -41,7 +41,7 @@ class Synthetic(Experiment):
         X = np.concatenate((X_pos, X_neg), axis=0)
         y = np.concatenate((y_pos, y_neg), axis=0)
 
-        super().__init__(model, X, y, feature_names=['x', 'y'], name="Synthetic", prop_known=0.001, rng=rng, metric="auc")
+        super().__init__(model, X, y, feature_names=['x', 'y'], name="Synthetic", prop_known=0.001, rng=rng, metric="f1")
 
     @staticmethod
     def generate_positive(start, end, skip):
