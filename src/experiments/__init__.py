@@ -15,3 +15,15 @@ from .habermans_survival import *
 
 from . import german
 from .german import *
+
+from . import credit
+from .credit import *
+
+from . import australian
+from .australian import *
+
+from . import hepatitis
+from .hepatitis import *
+
+from . import heart
+from .heart import *
