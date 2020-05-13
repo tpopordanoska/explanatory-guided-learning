@@ -31,6 +31,7 @@ class LearningLoop:
             "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
             "xgl": lambda **kwargs: self.xgl_clustering(**kwargs),
             "rules": lambda **kwargs: self.xgl_rules(**kwargs),
+            "rules_hierarchy": lambda **kwargs: self.xgl_rules_hierarchy(**kwargs)
         }
 
     def random_sampling(self, **kwargs):
@@ -147,10 +148,11 @@ class LearningLoop:
 
         return query_idx
 
-    def xgl_rules(self, **kwargs):
+    def xgl_rules(self, hierarchy=False, **kwargs):
         """
         Find index of the query to be labeled with the XGL strategy using global surrogate model (decision trees).
 
+        :param hierarchy: Whether to do hierarchical global explanation
         :param kwargs: Keyword arguments
 
         :return: The index of the query (in X) to be labeled
@@ -199,6 +201,17 @@ class LearningLoop:
 
         # Get the worst rule
         worst_rule = self.get_worst_rule(X_known_train_pd, clf)
+
+        if hierarchy:
+            # Find the points that satisfy the chosen rule
+            points_known_train_pd = self.get_points_satisfying_rule(X_known_train_pd, worst_rule[0])
+            # Check if all predictions are the same
+            kt_predictions = points_known_train_pd.predictions.to_numpy()
+            if not all(element == kt_predictions[0] for element in kt_predictions):
+                # Get worst rule from the new points
+                print("Hierarchical rule selection")
+                worst_rule = self.get_worst_rule(points_known_train_pd, clf)
+                X_train_pd = points_known_train_pd[points_known_train_pd["is_train"]]
 
         # Find the points that satisfy the chosen rule
         points_pd = self.get_points_satisfying_rule(X_train_pd, worst_rule[0])
@@ -308,6 +321,16 @@ class LearningLoop:
         else:
             plt.show()
         plt.close()
+
+    def xgl_rules_hierarchy(self, **kwargs):
+        """
+        Find index of the query to be labeled with the XGL strategy using global surrogate model (decision trees).
+
+        :param kwargs: Keyword arguments
+
+        :return: The index of the query (in X) to be labeled
+        """
+        return self.xgl_rules(**kwargs, hierarchy=True)
 
     def get_points_satisfying_rule(self, X, rule):
         return X.query(rule)
