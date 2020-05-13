@@ -28,7 +28,7 @@ tiny_clusters = True
 # General parameters
 split_seed = 0
 seed = 0
-max_iter = 20
+max_iter = 100
 n_folds = 10
 n_clusters_list = [10]
 plots_off = True
@@ -40,16 +40,16 @@ for theta in thetas:
 
 # List of experiments that will be performed
 experiments = [
-    # "habermans-survival",
-    # "breast-cancer",
-    # "banknote-auth",
+    "habermans-survival",
+    "breast-cancer",
+    "banknote-auth",
     "synthetic",
-    # "german",
-    # "adult",
-    # "credit",
-    # "australian",
-    # "hepatitis",
-    # "heart"
+    "german",
+    "adult",
+    "credit",
+    "australian",
+    "hepatitis",
+    "heart"
 ]
 scorers = [
     "f1_macro",
@@ -114,9 +114,11 @@ for experiment_name in experiments:
                 scores_test_dict_f1[key].append(loop.test_scores_f1)
                 scores_dict_auc[key].append(loop.scores_auc)
                 scores_test_dict_auc[key].append(loop.test_scores_auc)
+                scores_queries_dict_f1[key].append(loop.query_scores)
 
         # Plot results
         plot_results(scores_dict_f1, scores_test_dict_f1, loop.annotated_point, n_folds, experiment,
                      split_seed, scorers[0], file, model_path, max_iter)
         plot_results(scores_dict_auc, scores_test_dict_auc, loop.annotated_point, n_folds, experiment,
                      split_seed, scorers[1], file, model_path, max_iter)
+        plot_narrative_bias(scores_test_dict_f1, scores_queries_dict_f1, n_folds, model_path)
