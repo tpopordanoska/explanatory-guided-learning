@@ -1,17 +1,19 @@
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.pipeline import Pipeline
 from sklearn.pipeline import FeatureUnion
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
+from ..learners import *
 
 
 class German(Experiment):
 
     def __init__(self, **kwargs):
-        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
+        model = GradientBoosting()
 
         urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/statlog/german/german.data"]
         self.load_dataset('data', urls)
@@ -40,12 +42,8 @@ class German(Experiment):
         # creating the feature vector
         X = dataset.drop('classification', axis=1)
 
-        num_attributes = X.select_dtypes(include=['int64']).columns
-        X = X[num_attributes]
-
-        column_names = ['Col_' + str(i) for i in range(0, X.shape[1])]
-        super().__init__(model, X.to_numpy(), y, feature_names=column_names, name="German", metric="auc",
-                         prop_known=0.01, rng=model.rng, normalizer=StandardScaler())
+        super().__init__(model, X, y, feature_names=X.columns, name="German", metric="f1",
+                         prop_known=0.01, rng=rng, normalizer=full_pipeline)
 
 
 class ColumnsSelector(BaseEstimator, TransformerMixin):
@@ -57,6 +55,8 @@ class ColumnsSelector(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
+        if not isinstance(X, pd.DataFrame):
+            X = pd.DataFrame(data=X)
         return X.select_dtypes(include=[self.type])
 
 

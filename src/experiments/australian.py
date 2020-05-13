@@ -2,12 +2,14 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
+from ..learners import *
 
 
 class Australian(Experiment):
 
     def __init__(self, **kwargs):
-        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
+        model = GradientBoosting()
 
         urls = ["http://archive.ics.uci.edu/ml/machine-learning-databases/statlog/australian/australian.dat"]
         self.load_dataset('data', urls)
@@ -23,5 +25,4 @@ class Australian(Experiment):
         X = dataset.drop('Y', axis=1)
 
         super().__init__(model, X, y, feature_names=X.columns, name="Australian", metric="f1",
-                         prop_known=0.001, rng=model.rng, normalizer=StandardScaler())
-
+                         prop_known=0.001, rng=rng, normalizer=StandardScaler())

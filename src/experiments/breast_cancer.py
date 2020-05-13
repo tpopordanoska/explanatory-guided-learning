@@ -2,12 +2,14 @@ from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
+from ..learners import *
 
 
 class BreastCancer(Experiment):
 
     def __init__(self, **kwargs):
-        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
+        model = SVM(name="SVM (gamma=0.01, C=100)", gamma=0.01, C=100)
 
         # Samples per class	212(M),357(B)
         dataset = load_breast_cancer()
@@ -26,4 +28,4 @@ class BreastCancer(Experiment):
                          'worst_concave_points', 'worst_symmetry', 'worst_fractal_dimension']
 
         super().__init__(model, X, y, feature_names=feature_names, name="Breast Cancer", prop_known=0.01,
-                         rng=model.rng, normalizer=StandardScaler())
+                         rng=rng, normalizer=StandardScaler())
