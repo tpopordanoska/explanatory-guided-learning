@@ -1,3 +1,5 @@
+import sklearn.metrics.pairwise as metrics
+from sklearn.cluster import KMeans
 from sklearn.metrics import f1_score, roc_auc_score
 from skrules import SkopeRules
 
@@ -28,6 +30,7 @@ class LearningLoop:
         self.METHODS = {
             "random": lambda  **kwargs: self.random_sampling(**kwargs),
             "al_least_confident": lambda **kwargs: self.least_confident_idx(**kwargs),
+            "al_density_weighted": lambda **kwargs: self.density_weighted_idx(**kwargs),
             "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
             "xgl": lambda **kwargs: self.xgl_clustering(**kwargs),
             "rules": lambda **kwargs: self.xgl_rules(**kwargs),
@@ -73,6 +76,59 @@ class LearningLoop:
             return None
         return train_idx[np.argmin(margins)]
 
+    def density_weighted_idx(self, **kwargs):
+        """
+        Get the index of the next query according to the density-weighted query selection strategy.
+        If clustering is used to speed up calculation, similarity of each instance in the train pool to each cluster
+        center is calculated.
+
+        :param kwargs: Keyword arguments
+
+        :return: The index (in X) of the selected example to be labeled
+        """
+        beta = kwargs.pop("param")
+        train_idx = kwargs.get("train_idx")
+        use_clustering = kwargs.pop("use_clustering")
+
+        X_known, y_known, X_train, y_train, _, _ = self.get_data(**kwargs)
+        X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+        X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
+
+        if hasattr(self.experiment.model.sklearn_model, "decision_function"):
+            margins = np.abs(self.experiment.model.decision_function(X_train_norm))
+        elif hasattr(self.experiment.model.sklearn_model, "predict_proba"):
+            probs = self.experiment.model.predict_proba(X_train_norm)
+            margins = np.sum(probs * np.log(probs), axis=1).ravel()
+        else:
+            raise AttributeError("Model with either decision_function or predict_proba method")
+
+        if use_clustering:
+            kmeans = KMeans().fit(X_known_train)
+            predictions_clustering = kmeans.predict(X_train_norm)
+            centroids = kmeans.cluster_centers_
+
+            cos_distance = []
+            for i in range(len(X_train_norm)):
+                # Compare every instance in train to the centroid of the cluster it belongs to
+                dist = metrics.cosine_distances(X_train_norm[i].reshape(1, -1),
+                                                centroids[predictions_clustering[i]].reshape(1, -1))[0][0]
+                cos_distance.append(dist)
+
+        else:
+            # TODO optimize to calculate the matrix once
+            cos_distance = []
+            for i in range(len(X_train_norm)):
+                dists = []
+                for j in range(len(X_train_norm)):
+                    dist = metrics.cosine_distances(X_train_norm[i].reshape(1, -1), X_train_norm[j].reshape(1, -1))[0][0]
+                    dists.append(dist)
+                cos_distance.append(np.mean(dists))
+
+        cos_distance = np.asarray(cos_distance)
+        query_idx = np.argmin(margins * cos_distance**beta)
+
+        return train_idx[query_idx]
+
     def search_query_array(self, **kwargs):
         """
         Find index of the query to be labeled using the search_query strategy.
@@ -115,7 +171,7 @@ class LearningLoop:
         train_idx = kwargs.pop("train_idx")
         known_idx = kwargs.pop("known_idx")
         y_pred = kwargs.pop("y_pred")
-        theta = kwargs.pop("theta")
+        theta = kwargs.pop("param")
         iteration = kwargs.pop("iteration")
         use_gower = self.experiment.use_gower
         X_train = get_from_indexes(self.experiment.X, train_idx)
@@ -180,7 +236,7 @@ class LearningLoop:
         """
         train_idx = kwargs.get("train_idx")
         known_idx = kwargs.get("known_idx")
-        theta = kwargs.get("theta")
+        theta = kwargs.get("param")
 
         X_train = get_from_indexes(self.experiment.X, train_idx)
         X_known = get_from_indexes(self.experiment.X, known_idx)
@@ -282,9 +338,9 @@ class LearningLoop:
 
     def get_data(self, **kwargs):
         experiment = self.experiment
-        train_idx = kwargs.pop("train_idx")
-        known_idx = kwargs.pop("known_idx")
-        test_idx = kwargs.pop("test_idx")
+        train_idx = kwargs.get("train_idx")
+        known_idx = kwargs.get("known_idx")
+        test_idx = kwargs.get("test_idx")
 
         X_known, y_known = get_from_indexes(experiment.X, known_idx), experiment.y[known_idx]
         X_train, y_train = get_from_indexes(experiment.X, train_idx), experiment.y[train_idx]
@@ -479,6 +535,7 @@ class LearningLoop:
 
         :return: List of accuracy scores (F1 and AUC) on train and test set
         """
+        # Empty the results arrays before every run
         self.query_array = []
         self.scores_f1 = []
         self.test_scores_f1 = []
@@ -486,14 +543,11 @@ class LearningLoop:
         self.test_scores_auc = []
         self.query_scores = []
 
-        experiment = self.experiment
-        theta = ""
-        if "xgl" in method:
-            theta = float(method.split("_")[1])
-            method = "xgl"
-        elif "rules" in method:
-            theta = float(method.split("_")[-1])
-            method = "rules"
+        # Get the theta value for XGL and rules or beta value for density based AL
+        param = ""
+        if "xgl" in method or "rules" in method or "density" in method:
+            param = float(method.split("_")[-1])
+            method = "_".join(method.split("_")[:-1])
 
         # 1. Train a model
         y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)
@@ -510,18 +564,19 @@ class LearningLoop:
                                              test_idx=test_idx,
                                              y_pred=y_pred,
                                              iteration=iteration,
-                                             theta=theta)
+                                             param=param,
+                                             use_clustering=False)
 
             if query_idx is None:
-                break
-            self.file.write("Selected point: {}\n".format(get_from_indexes(experiment.X, query_idx)))
+                continue
+            self.file.write("Selected point: {}\n".format(get_from_indexes(self.experiment.X, query_idx)))
 
             if not self.plots_off:
-                plot_decision_surface(experiment,
+                plot_decision_surface(self.experiment,
                                       known_idx,
                                       train_idx,
                                       query_idx=query_idx,
-                                      title=str(iteration) + " " + experiment.model.name + " " + method,
+                                      title=str(iteration) + " " + self.experiment.model.name + " " + method,
                                       path=self.path)
 
             # 3. Query an "oracle" and add the labeled example to the training set
@@ -532,16 +587,16 @@ class LearningLoop:
 
         # Plot the decision surface
         if not self.plots_off:
-            plot_decision_surface(experiment,
+            plot_decision_surface(self.experiment,
                                   known_idx,
                                   train_idx,
-                                  title=str(iteration) + " " + experiment.model.name + " " + method,
+                                  title="Last iteration " + self.experiment.model.name + " " + method,
                                   path=self.path)
             # Plot the predictions
-            plot_decision_surface(experiment,
+            plot_decision_surface(self.experiment,
                                   known_idx,
                                   test_idx,
                                   y_pred=y_pred_test,
-                                  title="Predictions " + experiment.model.name + " " + method,
+                                  title="Predictions " + self.experiment.model.name + " " + method,
                                   path=self.path)
 
