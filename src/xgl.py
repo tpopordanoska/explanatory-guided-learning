@@ -9,7 +9,7 @@ class Annotator:
     Class containing methods for the explanatory guided query selection strategy.
     """
     @staticmethod
-    def select_from_worst_cluster(pd_points, clusters, train_idx, theta, rng, file=None):
+    def select_from_worst_cluster(pd_points, clusters, train_idx, theta, rng, file=None, dist_matrix=None):
         """
         Select index of the point to be labeled from the cluster containing largest number of wrong points.
 
@@ -55,8 +55,11 @@ class Annotator:
         pd_points_features = pd_points.copy()
         pd_points_features = pd_points_features.drop(columns=["labels", "predictions", "idx"])
         # Find the element with min proximity to the centroid for each wrongly classified point in that cluster
-        closest_wrong_idx = min(selected_cluster_value, key=lambda x: distance.euclidean(
-            pd_points_features.iloc[x], pd_points_features.iloc[max_centroid]))
+        if dist_matrix is not None:
+            closest_wrong_idx = min(selected_cluster_value, key=lambda x: dist_matrix[max_centroid, x])
+        else:
+            closest_wrong_idx = min(selected_cluster_value, key=lambda x: distance.euclidean(
+                pd_points_features.iloc[x], pd_points_features.iloc[max_centroid]))
 
         query_idx = int(pd_points.iloc[closest_wrong_idx].idx)
         return wrong_points, query_idx

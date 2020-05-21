@@ -117,12 +117,17 @@ class LearningLoop:
         y_pred = kwargs.pop("y_pred")
         theta = kwargs.pop("theta")
         iteration = kwargs.pop("iteration")
+        use_gower = self.experiment.use_gower
         X_train = get_from_indexes(self.experiment.X, train_idx)
         X_known = get_from_indexes(self.experiment.X, known_idx)
 
-        X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+        if use_gower:
+            # No need to normalize the data, as it is done in the gower_matrix() method
+            X_known_train = np.concatenate((X_known, X_train), axis=0)
+        else:
+            X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+            X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
 
-        X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
         kmedoids_pd = pd.DataFrame(data=X_known_train)
         kmedoids_pd['predictions'] = np.concatenate((self.experiment.y[known_idx], y_pred), axis=0)
 
@@ -132,19 +137,35 @@ class LearningLoop:
         known_train_pd["idx"] = known_train_idx
 
         # Find the clusters and their centroids
-        clusters, centroids = run_kmedoids(kmedoids_pd, n_clusters=self.no_clusters, use_labels=self.use_labels,
-                                           use_weights=self.use_weights, path=self.path, plots_off=self.plots_off)
+        clusters, centroids, dist_matrix = run_kmedoids(kmedoids_pd,
+                                                        n_clusters=self.no_clusters,
+                                                        use_labels=self.use_labels,
+                                                        use_weights=self.use_weights,
+                                                        path=self.path,
+                                                        plots_off=self.plots_off,
+                                                        use_gower=use_gower)
         # Find the index of the query to be labeled
-        wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd, clusters, train_idx, theta=theta,
-                                                                        rng=self.experiment.rng, file=self.file)
+        wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd,
+                                                                        clusters,
+                                                                        train_idx,
+                                                                        theta=theta,
+                                                                        rng=self.experiment.rng,
+                                                                        file=self.file,
+                                                                        dist_matrix=dist_matrix)
         key = "xgl_" + str(theta)
         if not len(wrong_points) and key not in self.annotated_point.keys():
             self.annotated_point[key] = iteration
 
         # Plot the wrong points
         if len(wrong_points):
-            run_kmedoids(kmedoids_pd, n_clusters=self.no_clusters, other_points=wrong_points, use_labels=self.use_labels,
-                         use_weights=self.use_weights, path=self.path, plots_off=self.plots_off)
+            run_kmedoids(kmedoids_pd,
+                         n_clusters=self.no_clusters,
+                         other_points=wrong_points,
+                         use_labels=self.use_labels,
+                         use_weights=self.use_weights,
+                         path=self.path,
+                         plots_off=self.plots_off,
+                         use_gower=use_gower)
 
         return query_idx
 

@@ -11,7 +11,8 @@ class Experiment:
     """
     Class containing common methods for the experiments
     """
-    def __init__(self, model, X, y, feature_names, name, prop_known=0.1, metric="f1", rng=None, normalizer=MinMaxScaler()):
+    def __init__(self, model, X, y, feature_names, name, prop_known=0.1, metric="f1",
+                 rng=None, normalizer=MinMaxScaler(), use_gower=True):
         self.model = model
         self.X, self.y = X, y
         self.feature_names = feature_names
@@ -20,6 +21,7 @@ class Experiment:
         self.prop_known = prop_known
         self.rng = check_random_state(rng)
         self.normalizer = normalizer
+        self.use_gower = use_gower
 
     @staticmethod
     def load_dataset(path, urls):

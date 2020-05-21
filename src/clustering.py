@@ -1,10 +1,11 @@
+import gower
 from pyclustering.cluster.kmedoids import kmedoids
 
 from .plotting import *
 
 
-def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False",
-                 use_weights="False", path=None, plots_off=True):
+def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels=False,
+                 use_weights=False, path=None, plots_off=True, use_gower=False):
     """
     Run kmedoids algorithm on the given points with the given number of clusters and plot the centroids.
 
@@ -15,6 +16,7 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False",
     :param use_weights: Whether to weigh the labels by the number of other attributes
     :param path: The path to the folder where the graphs will be saved
     :param plots_off: Whether to plot the graphs
+    :param use_gower: Whether to calculate distance using gower metric
 
     :return: Indexes (in points) of the found clusters and the corresponding centroids
     """
@@ -35,7 +37,13 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False",
     initial_medoids = np.random.randint(len(points), size=n_clusters)
 
     # 2. Create instance of K-Medoids algorithm.
-    kmedoids_instance = kmedoids(points, initial_medoids)
+    if use_gower:
+        matrix = gower.gower_matrix(points)
+        kmedoids_instance = kmedoids(matrix, initial_medoids, data_type='distance_matrix')
+    else:
+        matrix = None
+        kmedoids_instance = kmedoids(points, initial_medoids)
+
     # Run cluster analysis and obtain results.
     kmedoids_instance.process()
 
@@ -74,5 +82,4 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels="False",
         else:
             plt.show()
         plt.close()
-    return kmedoids_instance.get_clusters(), centroids_idx
-
+    return kmedoids_instance.get_clusters(), centroids_idx, matrix
