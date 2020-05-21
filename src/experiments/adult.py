@@ -7,12 +7,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
+from ..learners import *
 
 
 class Adult(Experiment):
 
     def __init__(self, **kwargs):
-        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
+        model = GradientBoosting()
 
         urls = ["http://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data",
                 "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names",
@@ -51,7 +53,7 @@ class Adult(Experiment):
         column_names = ['Col_' + str(i) for i in range(0, X.shape[1])]
 
         #After resampling with train_size = 0.1: total 3256 examples, 784 1s, 2472 0s
-        super().__init__(model, X, y, feature_names=column_names, name="Adult", prop_known=0.001, rng=model.rng,
+        super().__init__(model, X, y, feature_names=column_names, name="Adult", prop_known=0.001, rng=rng,
                          normalizer=full_pipeline)
 
 

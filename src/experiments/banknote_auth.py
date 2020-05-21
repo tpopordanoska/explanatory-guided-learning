@@ -1,12 +1,15 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+
 from .experiment import Experiment
+from ..learners import *
 
 
 class BanknoteAuth(Experiment):
 
     def __init__(self, **kwargs):
-        model = kwargs.pop("model")
+        rng = kwargs.pop("rng")
+        model = SVM(name="SVM (gamma=0.01, C=100)", gamma=0.01, C=100)
 
         urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/00267/data_banknote_authentication.txt"]
         self.load_dataset('data', urls)
@@ -22,4 +25,4 @@ class BanknoteAuth(Experiment):
         X = dataset.drop('class', axis=1)
 
         super().__init__(model, X.to_numpy(), y, feature_names=list(X.columns.values), name="Banknote Auth",
-                         prop_known=0.001, rng=model.rng, normalizer=StandardScaler())
+                         prop_known=0.001, rng=rng, normalizer=StandardScaler())
