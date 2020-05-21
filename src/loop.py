@@ -223,16 +223,27 @@ class LearningLoop:
 
         # Get the worst rule
         worst_rule = self.get_worst_rule(X_known_train_pd, theta, clf)
+        if worst_rule is None:
+            return None
 
         if hierarchy:
             # Find the points that satisfy the chosen rule
             points_known_train_pd = self.get_points_satisfying_rule(X_known_train_pd, worst_rule[0])
-            # Check if all predictions are the same
             kt_predictions = points_known_train_pd.predictions.to_numpy()
+            if isinstance(self.experiment, Synthetic):
+                # Sample new points
+                extra_points_pd = self.generate_points_satisfying_rule(points_known_train_pd, worst_rule[0])
+                # Append them to points_known_train_pd and kt_predictions
+                points_known_train_pd = points_known_train_pd.append(extra_points_pd, sort=False)
+                kt_predictions = np.concatenate((kt_predictions, extra_points_pd.predictions.to_numpy()), axis=0)
+
+            # Check if all predictions are the same
             if not all(element == kt_predictions[0] for element in kt_predictions):
                 # Get worst rule from the new points
                 print("Hierarchical rule selection")
                 worst_rule = self.get_worst_rule(points_known_train_pd, theta, clf)
+                if worst_rule is None:
+                    return None
                 X_train_pd = points_known_train_pd[points_known_train_pd["is_train"]]
 
         # Find the points that satisfy the chosen rule
@@ -244,7 +255,30 @@ class LearningLoop:
         if len(wrong_points_idx) == 0:
             return select_random(train_idx, self.experiment.rng)
 
-        return select_random(wrong_points_idx, self.experiment.rng)
+        return int(select_random(wrong_points_idx, self.experiment.rng))
+
+    def generate_points(self, points):
+        # 1. Generate new points
+        h = 0.05
+        x_min, x_max = points.x.min(), points.x.max()
+        y_min, y_max = points.y.min(), points.y.max()
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+        extra_points = np.c_[xx.ravel(), yy.ravel()]
+        extra_points_pd = pd.DataFrame(data=extra_points, columns=self.experiment.feature_names)
+
+        # 2. Use the blackbox predictor to predict their labels
+        extra_points_pd['predictions'] = self.experiment.model.predict(extra_points)
+        extra_points_pd['is_train'] = [False] * len(extra_points_pd)
+
+        return extra_points_pd
+
+    def generate_points_satisfying_rule(self, points, rule):
+        extra_points_pd = self.generate_points(points)
+
+        # to check if there are common points: pd.merge(points[['x', 'y']], extra_points_pd[['x', 'y']], how='inner')
+        assert self.get_points_satisfying_rule(extra_points_pd, rule).equals(extra_points_pd)
+
+        return extra_points_pd
 
     def get_data(self, **kwargs):
         experiment = self.experiment
@@ -268,8 +302,7 @@ class LearningLoop:
         score_rules = self.calc_acc(y_test, y_pred_test_rules, "f1")
 
         # Get accuracy of the blackbox classifier
-        iteration = kwargs.get("iteration")
-        score_blackbox = self.scores_f1[iteration]
+        score_blackbox = self.scores_f1[-1]
 
         return np.abs(score_blackbox - score_rules) < threshold
 
@@ -302,7 +335,10 @@ class LearningLoop:
         # Sort by the f1_score wrt the rules
         rules.sort(key=lambda x: x[2], reverse=True)
 
-        logits = [x[2] for x in rules]
+        if len(rules) == 0:
+            return None
+
+        logits = [1-x[2] for x in rules]
         exps = [np.exp(i * theta - max(logits)) for i in logits]
         softmax = [j / sum(exps) for j in exps]
         selected_rule_idx = self.experiment.rng.choice(len(rules), p=softmax)
