@@ -40,6 +40,7 @@ class LearningLoop:
             "rules_hierarchy": lambda **kwargs: self.xgl_rules_hierarchy(**kwargs)
         }
 
+    ############## QUERY SELECTION STRATEGIES ##############
     def random_sampling(self, **kwargs):
         """
         Get the index of a random point to be labeled.
@@ -59,21 +60,11 @@ class LearningLoop:
 
         :return: The index (in X) of the least confident example
         """
-        experiment = self.experiment
-        known_idx = kwargs.pop("known_idx")
-        train_idx = kwargs.pop("train_idx")
-        X_known = get_from_indexes(experiment.X, known_idx)
-        X_train = get_from_indexes(experiment.X, train_idx)
+        train_idx = kwargs.get("train_idx")
+        X_known, _, X_train, _, _, _ = self.get_data(**kwargs)
 
-        _, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
-
-        if hasattr(experiment.model.sklearn_model, "decision_function"):
-            margins = np.abs(experiment.model.decision_function(X_train_norm))
-        elif hasattr(experiment.model.sklearn_model, "predict_proba"):
-            probs = experiment.model.predict_proba(X_train_norm)
-            margins = np.sum(probs * np.log(probs), axis=1).ravel()
-        else:
-            raise AttributeError("Model with either decision_function or predict_proba method")
+        _, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+        margins = self.get_margins(X_train_norm)
 
         if len(margins) == 0:
             return None
@@ -96,14 +87,7 @@ class LearningLoop:
         X_known, y_known, X_train, y_train, _, _ = self.get_data(**kwargs)
         X_known_norm, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
         X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
-
-        if hasattr(self.experiment.model.sklearn_model, "decision_function"):
-            margins = np.abs(self.experiment.model.decision_function(X_train_norm))
-        elif hasattr(self.experiment.model.sklearn_model, "predict_proba"):
-            probs = self.experiment.model.predict_proba(X_train_norm)
-            margins = np.sum(probs * np.log(probs), axis=1).ravel()
-        else:
-            raise AttributeError("Model with either decision_function or predict_proba method")
+        margins = self.get_margins(X_train_norm)
 
         if use_clustering:
             kmeans = KMeans().fit(X_known_train)
@@ -252,8 +236,12 @@ class LearningLoop:
         X_known_train = np.concatenate((X_known_norm, X_train_norm), axis=0)
         y_predicted = self.experiment.model.predict(X_known_train)
 
+        column_names = self.experiment.feature_names
+        if X_known_train.shape[1] != len(column_names):
+            column_names = ['Col_' + str(i) for i in range(0, X_known_train.shape[1])]
+
         # Create a dataframe holding the known and train data with their predictions, labels and indexes in X
-        X_known_train_pd = pd.DataFrame(data=X_known_train, columns=self.experiment.feature_names)
+        X_known_train_pd = pd.DataFrame(data=X_known_train, columns=column_names)
         X_known_train_pd['is_train'] = np.concatenate([[False] * len(known_idx), [True] * len(train_idx)])
         X_known_train_pd['predictions'] = y_predicted
         X_known_train_pd['labels'] = np.concatenate([self.experiment.y[known_idx], self.experiment.y[train_idx]])
@@ -262,11 +250,17 @@ class LearningLoop:
 
         X_known_train_features = X_known_train_pd.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
 
-        column_names = self.experiment.feature_names
-        if X_known_train_features.shape[1] != len(column_names):
-            column_names = ['Col_' + str(i) for i in range(0, X_known_train_features.shape[1])]
+        # Generate extra points
+        if isinstance(self.experiment, Synthetic):
+            extra_points_pd = self.generate_points(X_known_train_features)
+            X_kte_pd = X_known_train_pd.append(extra_points_pd, sort=False)
+            X_kte_features = X_kte_pd[column_names]
+            kte_predictions = X_kte_pd['predictions']
+        else:
+            X_kte_features = X_known_train_features
+            kte_predictions = X_known_train_pd['predictions']
 
-        n_estimators = [5, 10, 20, 35, 50]
+        n_estimators = [5, 15, 30]
         num_features = len(self.experiment.feature_names)
         max_depth = num_features * 2 if num_features < 5 else num_features
         for n_estim in n_estimators:
@@ -276,12 +270,11 @@ class LearningLoop:
                              max_depth=max_depth,
                              max_features=None,
                              max_samples=1.0,
-                             max_depth_duplication=n_estim,
                              random_state=self.experiment.rng,
                              feature_names=column_names)
 
-            clf.fit(X_known_train_features, X_known_train_pd['predictions'])
-            if self.compare_performance(clf, 0.2, **kwargs):
+            clf.fit(X_kte_features, kte_predictions)
+            if self.compare_performance(clf, 0.15, **kwargs):
                 break
 
         # Get the worst rule
@@ -320,97 +313,9 @@ class LearningLoop:
 
         return int(select_random(wrong_points_idx, self.experiment.rng))
 
-    def generate_points(self, points):
-        # 1. Generate new points
-        h = 0.05
-        x_min, x_max = points.x.min(), points.x.max()
-        y_min, y_max = points.y.min(), points.y.max()
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
-        extra_points = np.c_[xx.ravel(), yy.ravel()]
-        extra_points_pd = pd.DataFrame(data=extra_points, columns=self.experiment.feature_names)
-
-        # 2. Use the blackbox predictor to predict their labels
-        extra_points_pd['predictions'] = self.experiment.model.predict(extra_points)
-        extra_points_pd['is_train'] = [False] * len(extra_points_pd)
-
-        return extra_points_pd
-
-    def generate_points_satisfying_rule(self, points, rule):
-        extra_points_pd = self.generate_points(points)
-
-        # to check if there are common points: pd.merge(points[['x', 'y']], extra_points_pd[['x', 'y']], how='inner')
-        assert self.get_points_satisfying_rule(extra_points_pd, rule).equals(extra_points_pd)
-
-        return extra_points_pd
-
-    def get_data(self, **kwargs):
-        experiment = self.experiment
-        train_idx = kwargs.get("train_idx")
-        known_idx = kwargs.get("known_idx")
-        test_idx = kwargs.get("test_idx")
-
-        X_known, y_known = get_from_indexes(experiment.X, known_idx), experiment.y[known_idx]
-        X_train, y_train = get_from_indexes(experiment.X, train_idx), experiment.y[train_idx]
-        X_test, y_test = get_from_indexes(experiment.X, test_idx), experiment.y[test_idx]
-
-        return X_known, y_known, X_train, y_train, X_test, y_test
-
-    def compare_performance(self, clf, threshold, **kwargs):
-        X_known, y_known, X_train, y_train, X_test, y_test = self.get_data(**kwargs)
-        # Normalize the data
-        X_known, X_train, X_test = Normalizer(self.experiment.normalizer).normalize_all(X_known, X_train, X_test)
-
-        # Calculate accuracy wrt the extracted rules
-        y_pred_test_rules = clf.predict(X_test)
-        score_rules = self.calc_acc(y_test, y_pred_test_rules, "f1")
-
-        # Get accuracy of the blackbox classifier
-        score_blackbox = self.scores_f1[-1]
-
-        return np.abs(score_blackbox - score_rules) < threshold
-
-    def get_worst_rule(self, data, theta, clf):
-        X_known_train_features = data.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
-        predictions = data['predictions']
-        X_train_pd = data[data["is_train"]]
-
-        rules = []
-        for idx, features in enumerate(np.unique(self.experiment.y)):
-            clf.fit(X_known_train_features, predictions == idx)
-            for rule in clf.rules_:
-                # Each element in rules_ is a tuple (rule, precision, recall, nb).
-                # nb = the number of time that this rule was extracted from the trees built during skope-rules' fitting
-                # Get the points in X_train
-                points_pd = self.get_points_satisfying_rule(X_train_pd, rule[0])
-                # if there are no points in X_train that satisfy the rule, skip it
-                if len(points_pd) > 0:
-                    points_predictions = np.ones(len(points_pd)) * idx
-                    score = self.get_f1_score(points_pd.labels, points_predictions)
-                    score_blackbox = self.get_f1_score(points_pd.labels, points_pd.predictions)
-                    # Each element in rules is a tuple (rule, class, f1_score wrt rules, f1_score wrt classifier)
-                    rules.append((rule[0], idx, score, score_blackbox))
-            if not self.plots_off:
-                plot_rules(clf, data, predictions == idx, idx, self.path)
-
-        self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
-        print("Number of extracted rules: ", len(rules))
-
-        # Sort by the f1_score wrt the rules
-        rules.sort(key=lambda x: x[2], reverse=True)
-
-        if len(rules) == 0:
-            return None
-
-        logits = [1-x[2] for x in rules]
-        exps = [np.exp(i * theta - max(logits)) for i in logits]
-        softmax = [j / sum(exps) for j in exps]
-        selected_rule_idx = self.experiment.rng.choice(len(rules), p=softmax)
-
-        return rules[selected_rule_idx]
-
     def xgl_rules_hierarchy(self, **kwargs):
         """
-        Find index of the query to be labeled with the XGL strategy using global surrogate model (decision trees).
+        Find index of the query to be labeled with the hierarchical XGL strategy using global surrogate model.
 
         :param kwargs: Keyword arguments
 
@@ -418,9 +323,7 @@ class LearningLoop:
         """
         return self.xgl_rules(**kwargs, hierarchy=True)
 
-    def get_points_satisfying_rule(self, X, rule):
-        return X.query(rule)
-
+    ############## HELPER METHODS ##############
     def move(self, known_idx, train_idx, query_idx):
         """
         Move the selected query from the train to the known dataset.
@@ -531,6 +434,108 @@ class LearningLoop:
             print("AUC score: {}\n".format(score))
         return score
 
+    def get_margins(self, data):
+        if hasattr(self.experiment.model.sklearn_model, "decision_function"):
+            margins = np.abs(self.experiment.model.decision_function(data))
+        elif hasattr(self.experiment.model.sklearn_model, "predict_proba"):
+            probs = self.experiment.model.predict_proba(data)
+            margins = np.sum(probs * np.log(probs), axis=1).ravel()
+        else:
+            raise AttributeError("Model with either decision_function or predict_proba method")
+
+        return margins
+
+    def generate_points(self, points):
+        # 1. Generate new points
+        h = 0.05
+        x_min, x_max = points.x.min(), points.x.max()
+        y_min, y_max = points.y.min(), points.y.max()
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+        extra_points = np.c_[xx.ravel(), yy.ravel()]
+        extra_points_pd = pd.DataFrame(data=extra_points, columns=self.experiment.feature_names)
+
+        # 2. Use the blackbox predictor to predict their labels
+        extra_points_pd['predictions'] = self.experiment.model.predict(extra_points)
+        extra_points_pd['is_train'] = [False] * len(extra_points_pd)
+
+        return extra_points_pd
+
+    def generate_points_satisfying_rule(self, points, rule):
+        extra_points_pd = self.generate_points(points)
+
+        # to check if there are common points: pd.merge(points[['x', 'y']], extra_points_pd[['x', 'y']], how='inner')
+        assert self.get_points_satisfying_rule(extra_points_pd, rule).equals(extra_points_pd)
+
+        return extra_points_pd
+
+    def get_data(self, **kwargs):
+        train_idx = kwargs.get("train_idx")
+        known_idx = kwargs.get("known_idx")
+        test_idx = kwargs.get("test_idx")
+
+        X_known, y_known = get_from_indexes(self.experiment.X, known_idx), self.experiment.y[known_idx]
+        X_train, y_train = get_from_indexes(self.experiment.X, train_idx), self.experiment.y[train_idx]
+        X_test, y_test = get_from_indexes(self.experiment.X, test_idx), self.experiment.y[test_idx]
+
+        return X_known, y_known, X_train, y_train, X_test, y_test
+
+    def compare_performance(self, clf, threshold, **kwargs):
+        X_known, y_known, X_train, y_train, _, _ = self.get_data(**kwargs)
+        # Normalize the data
+        X_known, X_train = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+
+        # Calculate accuracy wrt the extracted rules
+        y_pred_train_rules = clf.predict(X_train)
+        score_rules = self.calc_acc(y_train, y_pred_train_rules, "f1")
+
+        # Get accuracy of the blackbox classifier
+        score_blackbox = self.scores_f1[-1]
+
+        return np.abs(score_blackbox - score_rules) < threshold
+
+    def get_worst_rule(self, data, theta, clf):
+        X_known_train_features = data.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
+        predictions = data['predictions']
+        X_train_pd = data[data["is_train"]]
+
+        rules = []
+        for idx, features in enumerate(np.unique(self.experiment.y)):
+            clf.fit(X_known_train_features, predictions == idx)
+            for rule in clf.rules_:
+                # Each element in rules_ is a tuple (rule, precision, recall, nb).
+                # nb = the number of time that this rule was extracted from the trees built during skope-rules' fitting
+                # Get the points in X_train
+                points_pd = self.get_points_satisfying_rule(X_train_pd, rule[0])
+                # if there are no points in X_train that satisfy the rule, skip it
+                if len(points_pd) > 0:
+                    points_predictions = np.ones(len(points_pd)) * idx
+                    score = self.get_f1_score(points_pd.labels, points_predictions)
+                    score_blackbox = self.get_f1_score(points_pd.labels, points_pd.predictions)
+                    # Each element in rules is a tuple (rule, class, f1_score wrt rules, f1_score wrt classifier)
+                    rules.append((rule[0], idx, score, score_blackbox))
+            if not self.plots_off:
+                plot_rules(clf, data, predictions == idx, idx, self.path)
+
+        self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
+        print("Number of extracted rules: ", len(rules))
+
+        # Sort by the f1_score wrt the rules
+        rules.sort(key=lambda x: x[2], reverse=True)
+
+        if len(rules) == 0:
+            return None
+
+        logits = [1-x[2] for x in rules]
+        exps = [np.exp(i * theta - max(logits)) for i in logits]
+        softmax = [j / sum(exps) for j in exps]
+        selected_rule_idx = self.experiment.rng.choice(len(rules), p=softmax)
+
+        return rules[selected_rule_idx]
+
+    @staticmethod
+    def get_points_satisfying_rule(X, rule):
+        return X.query(rule)
+
     def run(self, method, known_idx, train_idx, test_idx):
         """
         Perform the learning loop: train a model, select a query and retrain the model until the budget is exhausted.
@@ -560,7 +565,7 @@ class LearningLoop:
         # 1. Train a model
         y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)
 
-        for iteration in range(self.max_iter):
+        for iteration in tqdm(range(self.max_iter)):
             self.file.write("Iteration: {}\n".format(iteration))
             # If we have selected all instances in the train dataset
             if len(train_idx) <= 1:
