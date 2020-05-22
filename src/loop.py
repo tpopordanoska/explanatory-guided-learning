@@ -2,6 +2,7 @@ import sklearn.metrics.pairwise as metrics
 from sklearn.cluster import KMeans
 from sklearn.metrics import f1_score, roc_auc_score
 from skrules import SkopeRules
+from tqdm import tqdm
 
 from src.clustering import run_kmedoids
 from src.plotting import *
@@ -26,6 +27,8 @@ class LearningLoop:
         self.scores_auc = []
         self.test_scores_auc = []
         self.query_scores = []
+        self.cos_distance_matrix = None
+        self.initial_train_idx = None
 
         self.METHODS = {
             "random": lambda  **kwargs: self.random_sampling(**kwargs),
@@ -115,13 +118,17 @@ class LearningLoop:
                 cos_distance.append(dist)
 
         else:
-            # TODO optimize to calculate the matrix once
+            # Compute the similarity matrix once for each fold
+            if self.cos_distance_matrix is None:
+                self.cos_distance_matrix = np.zeros((np.max(train_idx) + 1, np.max(train_idx) + 1))
+                for i, idx_i in tqdm(enumerate(train_idx)):
+                    for j, idx_j in enumerate(train_idx):
+                        self.cos_distance_matrix[idx_i][idx_j] = metrics.cosine_distances(
+                            X_train_norm[i].reshape(1, -1), X_train_norm[j].reshape(1, -1))[0][0]
+
             cos_distance = []
-            for i in range(len(X_train_norm)):
-                dists = []
-                for j in range(len(X_train_norm)):
-                    dist = metrics.cosine_distances(X_train_norm[i].reshape(1, -1), X_train_norm[j].reshape(1, -1))[0][0]
-                    dists.append(dist)
+            for idx in train_idx:
+                dists = self.cos_distance_matrix[idx, [train_idx]]
                 cos_distance.append(np.mean(dists))
 
         cos_distance = np.asarray(cos_distance)
@@ -542,6 +549,7 @@ class LearningLoop:
         self.scores_auc = []
         self.test_scores_auc = []
         self.query_scores = []
+        self.cos_distance_matrix = None
 
         # Get the theta value for XGL and rules or beta value for density based AL
         param = ""
