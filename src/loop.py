@@ -102,13 +102,27 @@ class LearningLoop:
                 cos_distance.append(dist)
 
         else:
-            # Compute the similarity matrix once for each fold
+            # Check if distance matrix was previously computed
+            dist_matrix_path = "{}\\distance_matrix".format(os.getcwd())
+            try:
+                self.cos_distance_matrix = np.load("{}\\{}.npy".format(dist_matrix_path, self.experiment.name))
+            except IOError:
+                print("File {} does not exist or cannot be read".format(dist_matrix_path))
+
+            # Compute the similarity matrix if it has not been stored already
             if self.cos_distance_matrix is None:
-                self.cos_distance_matrix = np.zeros((np.max(train_idx) + 1, np.max(train_idx) + 1))
-                for i, idx_i in tqdm(enumerate(train_idx)):
-                    for j, idx_j in enumerate(train_idx):
-                        self.cos_distance_matrix[idx_i][idx_j] = metrics.cosine_distances(
-                            X_train_norm[i].reshape(1, -1), X_train_norm[j].reshape(1, -1))[0][0]
+                X_norm = Normalizer(self.experiment.normalizer).normalize(self.experiment.X)
+                self.cos_distance_matrix = np.zeros((len(X_norm), len(X_norm)))
+                for i, x_i in tqdm(enumerate(X_norm)):
+                    for j, x_j in enumerate(X_norm):
+                        self.cos_distance_matrix[i][j] = metrics.cosine_distances(
+                            x_i.reshape(1, -1), x_j.reshape(1, -1))[0][0]
+                try:
+                    os.mkdir(dist_matrix_path)
+                except FileExistsError:
+                    print("Directory {} already exists".format(dist_matrix_path))
+
+                np.save("{}\\{}.npy".format(dist_matrix_path, self.experiment.name), self.cos_distance_matrix)
 
             cos_distance = []
             for idx in train_idx:
