@@ -103,9 +103,9 @@ class LearningLoop:
 
         else:
             # Check if distance matrix was previously computed
-            dist_matrix_path = "{}\\distance_matrix".format(os.getcwd())
+            dist_matrix_path = os.path.join(os.getcwd(), "distance_matrix")
             try:
-                self.cos_distance_matrix = np.load("{}\\{}.npy".format(dist_matrix_path, self.experiment.name))
+                self.cos_distance_matrix = np.load(os.path.join(dist_matrix_path, self.experiment.name + ".npy"))
             except IOError:
                 print("File {} does not exist or cannot be read".format(dist_matrix_path))
 
@@ -122,7 +122,7 @@ class LearningLoop:
                 except FileExistsError:
                     print("Directory {} already exists".format(dist_matrix_path))
 
-                np.save("{}\\{}.npy".format(dist_matrix_path, self.experiment.name), self.cos_distance_matrix)
+                np.save(os.path.join(dist_matrix_path, self.experiment.name), self.cos_distance_matrix)
 
             cos_distance = []
             for idx in train_idx:

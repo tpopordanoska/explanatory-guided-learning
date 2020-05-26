@@ -76,10 +76,5 @@ def run_kmedoids(points_pd, n_clusters, other_points=None, use_labels=False,
         plt.scatter(centroids[:, 0], centroids[:, 1],
                     marker='x', s=169, linewidths=3,
                     color='red', zorder=10)
-        plt.title("K-Medoids")
-        if path:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " K-medoids.png")
-        else:
-            plt.show()
-        plt.close()
+        save_plot(plt, path, "K-Medoids", "K-Medoids")
     return kmedoids_instance.get_clusters(), centroids_idx, matrix
