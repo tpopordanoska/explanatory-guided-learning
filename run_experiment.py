@@ -1,21 +1,8 @@
 import time
 from collections import defaultdict
 
+from constants import EXPERIMENTS
 from src import *
-from src.experiments import *
-
-EXPERIMENTS = {
-    "german": lambda **kwargs: German(**kwargs),
-    "habermans-survival": lambda **kwargs: HabermansSurvival(**kwargs),
-    "breast-cancer": lambda **kwargs: BreastCancer(**kwargs),
-    "banknote-auth": lambda **kwargs: BanknoteAuth(**kwargs),
-    "synthetic": lambda **kwargs: Synthetic(**kwargs),
-    "adult": lambda **kwargs: Adult(**kwargs),
-    "credit": lambda **kwargs: Credit(**kwargs),
-    "australian": lambda **kwargs: Australian(**kwargs),
-    "hepatitis": lambda **kwargs: Hepatitis(**kwargs),
-    "heart": lambda **kwargs: Heart(**kwargs)
-}
 
 # Parameters for the clustering: if use_weights is true, use_labels must be true
 use_labels = True
@@ -33,15 +20,20 @@ n_folds = 10
 n_clusters_list = [10]
 plots_off = True
 # List of sampling strategies
-methods = ["random", "al_least_confident", "sq_random", "rules", "rules_hierarchy"]
-thetas = [1.0, 0.1, 0.01]
-for theta in thetas:
-    methods.append("xgl_{}".format(theta))
-    methods.append("rules_{}".format(theta))
+methods = ["random", "al_least_confident", "sq_random"]
+betas = [1]
+thetas_xgl = [1.0]
+thetas_rules = [100.0]
+for theta_xgl in thetas_xgl:
+    methods.append("xgl_{}".format(theta_xgl))
+for theta_rules in thetas_rules:
+    methods.append("rules_{}".format(theta_rules))
+    methods.append("rules_hierarchy_{}".format(theta_rules))
+for beta in betas:
+    methods.append("al_density_weighted_{}".format(beta))
 
 # List of experiments that will be performed
 experiments = [
-    "habermans-survival",
     "breast-cancer",
     "banknote-auth",
     "synthetic",
@@ -51,10 +43,6 @@ experiments = [
     "australian",
     "hepatitis",
     "heart"
-]
-scorers = [
-    "f1_macro",
-    "roc_auc"
 ]
 
 # Initialization
@@ -67,8 +55,7 @@ for experiment_name in experiments:
 
     # Create folders and file for logging
     experiment_path = create_experiment_folder(path_to_main_file, experiment_name)
-    model_path = create_model_folder(experiment_path, experiment.model.name)
-    file = open(model_path + '\\out.txt', 'w')
+    file = open(os.path.join(experiment_path, 'out.txt'), 'w')
 
     # Initialize results dictionaries
     scores_dict_f1 = defaultdict(list)
@@ -79,7 +66,7 @@ for experiment_name in experiments:
 
     for n_clusters in n_clusters_list:
         # Initialize the learning loop
-        loop = LearningLoop(experiment, n_clusters, max_iter, model_path, file, plots_off, use_weights, use_labels)
+        loop = LearningLoop(experiment, n_clusters, max_iter, experiment_path, file, plots_off, use_weights, use_labels)
 
         # Split the data into initially labeled (known), pool of unlabeled to choose from (train) and unlabeled for test
         folds = experiment.split(prop_known=experiment.prop_known, n_splits=n_folds, split_seed=split_seed)
@@ -92,22 +79,21 @@ for experiment_name in experiments:
                 X_initial = Normalizer(experiment.normalizer).normalize(experiment.X)
                 if experiment.X.shape[1] > 2:
                     X_initial = get_tsne_embedding(X_initial)
-                plot_points(X_initial, experiment.y, "Initial points", model_path)
-                plot_points(X_initial[known_idx], experiment.y[known_idx], "Known points", model_path)
-                plot_points(X_initial[test_idx], experiment.y[test_idx], "Test points", model_path)
+                plot_points(X_initial, experiment.y, "Initial points", experiment_path)
+                plot_points(X_initial[known_idx], experiment.y[known_idx], "Known points", experiment_path)
+                plot_points(X_initial[test_idx], experiment.y[test_idx], "Test points", experiment_path)
 
             # Run the experiment for every method in the list
             for method in methods:
                 # Write the parameters to the output file
                 write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
-                              method, n_clusters, n_folds, thetas, use_weights, use_labels)
+                              method, n_clusters, n_folds, thetas_xgl, use_weights, use_labels)
 
                 # Run the experiment
                 start = time.time()
                 loop.run(method, known_idx, train_idx, test_idx)
                 end = time.time()
-                execution_time = end-start
-                file.write("Execution time: " + str(execution_time))
+                file.write("Execution time: " + str(end-start))
 
                 # Collect the results for each method in a dictionary
                 key = method  # Use key = str(n_clusters) for checking the effect of n_clusters
@@ -117,9 +103,20 @@ for experiment_name in experiments:
                 scores_test_dict_auc[key].append(loop.test_scores_auc)
                 scores_queries_dict_f1[key].append(loop.query_scores)
 
-        # Plot results
-        plot_results(scores_dict_f1, scores_test_dict_f1, loop.annotated_point, n_folds, experiment,
-                     split_seed, scorers[0], file, model_path, max_iter)
-        plot_results(scores_dict_auc, scores_test_dict_auc, loop.annotated_point, n_folds, experiment,
-                     split_seed, scorers[1], file, model_path, max_iter)
-        plot_narrative_bias(scores_test_dict_f1, scores_queries_dict_f1, n_folds, model_path)
+    dump(experiment_path + '__scores.pickle', {
+        'train_f1': scores_dict_f1,
+        'test_f1': scores_test_dict_f1,
+        'train_auc': scores_dict_auc,
+        'test_auc': scores_test_dict_auc,
+        'queries_f1': scores_queries_dict_f1,
+        'score_passive_f1': get_passive_score(experiment, file, n_folds, split_seed, "f1_macro"),
+        'score_passive_auc': get_passive_score(experiment, file, n_folds, split_seed, "roc_auc"),
+        'args': {
+            'n_folds': n_folds,
+            'max_iter': max_iter,
+            'path': experiment_path,
+            'model_name': experiment.model.name,
+            'annotated_point': loop.annotated_point,
+        },
+    })
+

@@ -73,7 +73,6 @@ def plot_decision_surface_tsne(experiment, known_idx, train_idx, query_idx, y_pr
         plt.scatter(X_known_embedded[:, 0], X_known_embedded[:, 1], c=y_known, cmap=plt.cm.RdBu_r, s=45,
                     edgecolors="yellow", linewidths=2)
 
-    plt.title(title)
     if query_idx is not None:
         least_conf = get_from_indexes(experiment.X, query_idx)
         if isinstance(experiment, Adult):
@@ -84,11 +83,7 @@ def plot_decision_surface_tsne(experiment, known_idx, train_idx, query_idx, y_pr
             least_conf_norm = get_from_indexes(X_train_embedded, idx_in_train)
             plt.scatter(least_conf_norm[0], least_conf_norm[1], marker='x', s=400, linewidths=5, color='yellow')
 
-    if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png')
-    else:
-        plt.show()
-    plt.close()
+    save_plot(plt, path, title, title, False)
 
 
 def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pred=None, soft=True, title="",
@@ -149,18 +144,14 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
                 idx_in_train = idx_array[0]
                 least_conf_norm = X_train_norm[idx_in_train]
                 plt.scatter(least_conf_norm[0], least_conf_norm[1], marker='x', s=400, linewidths=5, color='yellow')
-        plt.title(title)
+
         plt.xlim(X_known_train_norm[:, 0].min() - 0.1, X_known_train_norm[:, 0].max() + 0.1)
         plt.ylim(X_known_train_norm[:, 1].min() - 0.1, X_known_train_norm[:, 1].max() + 0.1)
-        if path:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png',
-                        bbox_inches='tight')
-        else:
-            plt.show()
-        plt.close()
+
+        save_plot(plt, path, title, title, False)
 
 
-def plot_rules_tsne(clf, X, y, title, path):
+def plot_rules_tsne(X, y, title, path):
 
     X_embedded = get_tsne_embedding(X)
     h = 10
@@ -176,18 +167,13 @@ def plot_rules_tsne(clf, X, y, title, path):
     plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
     plt.scatter(X_embedded[:, 0], X_embedded[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
 
-    plt.title(title)
-    if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png", bbox_inches='tight')
-    else:
-        plt.show()
-    plt.close()
+    save_plot(plt, path, title, " rules", False)
 
 
 def plot_rules(clf, X, y, title="", path=None):
 
     if X.shape[1] > 2:
-        plot_rules_tsne(clf, X, y, title, path)
+        plot_rules_tsne(X, y, title, path)
     else:
         figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
         xx, yy = create_meshgrid(X, 0.005)
@@ -195,12 +181,8 @@ def plot_rules(clf, X, y, title="", path=None):
         Z = Z.reshape(xx.shape)
         plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
         plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
-        plt.title(title)
-        if path:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + " rules.png", bbox_inches='tight')
-        else:
-            plt.show()
-        plt.close()
+
+        save_plot(plt, path, title, " rules", False)
 
 
 def plot_points(X, y, title="", path=None):
@@ -218,178 +200,9 @@ def plot_points(X, y, title="", path=None):
     # set axes range
     plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
     plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
-    # plt.title(title)
-    # plt.axis("off")
-    if path:
-        plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + title + '.png',
-                    bbox_inches='tight')
-    else:
-        plt.show()
-    plt.close()
+
+    save_plot(plt, path, title, title)
 
 
 def get_tsne_embedding(X):
     return TSNE(n_components=2, n_iter=300, random_state=0).fit_transform(X)
-
-
-def plot_results(scores_dict, scores_test_dict, annotated_point, n_folds, experiment,
-                 split_seed, scorer, file, path, max_iter):
-    """
-    Plot the performance graphs.
-
-    :param scores_dict: A dictionary holding the scores for each method on the train set
-    :param scores_test_dict: A dictionary holding the scores for each method on the test set
-    :param annotated_point: The point where random sampling starts in XGL.
-    :param n_folds: The number of folds
-    :param experiment: The experiment
-    :param split_seed: The seed used for the split
-    :param scorer: The metric
-    :param file: The output file
-    :param path: The path of the folder where the plot will be saved
-    :param max_iter: The maximal iteration, used for the
-
-    """
-
-    score_passive = get_passive_score(experiment, file, n_folds, split_seed, scorer)
-
-    scores_dict_mean, scores_dict_std = get_mean_and_std(scores_dict, n_folds)
-    plot_acc(scores_dict_mean, scores_dict_std, score_passive,
-             annotated_dict=annotated_point,
-             plot_title=experiment.model.name,
-             img_title="{} on train set".format(experiment.model.name),
-             scorer=scorer,
-             path=path,
-             max_iter=max_iter)
-
-    scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
-    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive,
-             annotated_dict=annotated_point,
-             plot_title=experiment.model.name,
-             img_title="{} on test set".format(experiment.model.name),
-             scorer=scorer,
-             path=path,
-             max_iter=max_iter)
-
-
-def plot_acc(scores, stds, score_passive, annotated_dict=None, img_title="", plot_title="", path=None,
-             scorer="f1_macro", max_iter="100"):
-    """
-    Plot the accuracy scores as a function of the queried instances.
-
-    :param scores: Dictionary containing the accuracy scores for each method
-    :param stds: Dictionary containing the standard deviations for each method
-    :param score_passive: The f1 score of the experiment in a passive setting
-    :param annotated_dict: Dictionary containing the point where we switch to random sampling in XGL
-    :param img_title: The title of the image saved
-    :param plot_title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
-    :param scorer: The metric that has been used for calculating the performance
-    :param max_iter: The maximal iteration, used for the plots for GIFs
-
-    """
-    # colors = ['#840000', 'red', '#fc824a']
-    # linestyle=['solid', 'dotted', 'dashed']
-    colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple', 'tab:pink', 'tab:gray', 'tab:brown']
-    markers = ['o', 'v', 's', 'D', 'p', '*', 'd', '<', '<']
-    labels_lookup = {
-        "random": "Random sampling",
-        "al_least_confident": "AL (least confident)",
-        "al_density_weighted": "AL (density weighted)",
-        "sq_random": "Guided Learning",
-        "xgl_100.0": "XGL (theta=100)",
-        "xgl_5": "XGL (theta=5)",
-        "xgl_10.0": "XGL (theta=10)",
-        "xgl_1.0": "XGL (theta=1)",
-        "xgl_0.1": "XGL (theta=0.1)",
-        "xgl_0.01": "XGL (theta=0.01)",
-        "rules_100.0": "XGL_rules (theta=100)",
-        "rules_10.0": "XGL_rules (theta=10)",
-        "rules_1.0": "XGL_rules (theta=1)",
-        "rules_0.1": "XGL_rules (theta=0.1)",
-        "rules_0.01": "XGL rules (theta=0.01)",
-        "rules_hierarchy": "XGL(rules_hierarchy)",
-        "rules": "XGL (rules)",
-        "10": "10 prototypes",
-        "30": "30 prototypes",
-        "50": "50 prototypes",
-        "100": "100 prototypes"
-    }
-    # for n in range(max_iter):
-    n = max_iter
-    for i, (key, score) in enumerate(scores.items()):
-        x = np.arange(len(score))
-        plt.plot(x[:n], score[:n], label=labels_lookup[key], color=colors[i], linewidth=2, marker=markers[i], markevery=20)
-        plt.fill_between(x[:n], score[:n] - stds[key][:n], score[:n] + stds[key][:n], alpha=0.25, linewidth=0, color=colors[i])
-        if key in annotated_dict.keys():
-            annotated = annotated_dict[key]
-            plt.annotate('start random sampling', xy=(annotated, score[annotated]), xytext=(annotated - 10, score[annotated] - 0.1),
-                         arrowprops=dict(color="black", arrowstyle="->", connectionstyle="arc3"))
-
-    x = np.arange(len(max(scores.values(), key=lambda value: len(value))))
-    passive_mean = np.array([score_passive["mean"] for i in range(len(x))])
-    passive_std = np.array([score_passive["std"] * 2 for i in range(len(x))])
-
-    plt.plot(x[:n], passive_mean[:n], label="Passive setting", color=colors[-1], linewidth=2)
-    plt.fill_between(x[:n], passive_mean[:n] - passive_std[:n], passive_mean[:n] + passive_std[:n], alpha=0.25, linewidth=0,
-                     color=colors[-1])
-
-    plt.grid(True)
-    plt.xlabel('Number of obtained labels')
-    plt.ylabel(scorer)
-    plt.title(plot_title)
-    plt.legend()
-    if path:
-        try:
-            plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + img_title + '.png',  bbox_inches='tight')
-        except ValueError:
-            print("Something wrong with plotting")
-
-    else:
-        plt.show()
-    plt.close()
-
-
-def running_mean(data, window_width):
-    cumsum = np.cumsum(np.insert(data, 0, 0))
-    return (cumsum[window_width:] - cumsum[:-window_width]) / float(window_width)
-
-
-def moving_average(interval, window_size):
-    window = np.ones(int(window_size))/float(window_size)
-    return np.convolve(interval, window, 'same')
-
-
-def plot_narrative_bias(scores_test_dict, scores_queries_dict, n_folds, path):
-    scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
-    scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
-
-    for method, score in scores_queries_dict_mean.items():
-        img_title = "{}".format(method)
-
-        test_score = scores_test_dict_mean[method]
-        x = np.arange(len(test_score))
-        plt.plot(x, test_score, linewidth=2, markevery=20, label="test")
-        plt.fill_between(x, test_score - scores_test_dict_std[method], test_score + scores_test_dict_std[method], alpha=0.25, linewidth=0)
-
-        x = np.arange(len(score))
-        plt.plot(x, score, linewidth=1, markevery=20, label="queries", alpha=0.7)
-        plt.fill_between(x, score - scores_queries_dict_std[method], score + scores_queries_dict_std[method], alpha=0.25, linewidth=0)
-
-        score_ma = running_mean(score, 10)
-        x = np.arange(len(score_ma))
-        plt.plot(x, score_ma, linewidth=2, markevery=20, label="queries_ma")
-
-        plt.grid(True)
-        plt.xlabel('Number of obtained labels')
-        plt.ylabel("f1_macro")
-        plt.title(method)
-        plt.legend()
-        if path:
-            try:
-                plt.savefig(path + "\\" + datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f') + "-" + method + '.png')
-            except ValueError:
-                print("Something wrong with plotting")
-
-        else:
-            plt.show()
-        plt.close()

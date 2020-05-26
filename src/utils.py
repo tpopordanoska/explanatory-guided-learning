@@ -1,4 +1,5 @@
 import os
+import pickle
 from datetime import datetime
 
 from sklearn.model_selection import StratifiedKFold
@@ -13,7 +14,7 @@ def create_folders():
 
     :return: The path to the created folder
     """
-    path_results = "{}\\results".format(os.getcwd())
+    path_results = os.path.join(os.getcwd(), "results")
     try:
         os.mkdir(path_results)
     except FileExistsError:
@@ -24,7 +25,7 @@ def create_folders():
         print("Successfully created the directory {} ".format(path_results))
 
     # Create a separate folder for each time running the experiment
-    path = "{}\\{}". format(path_results, datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'))
+    path = os.path.join(path_results, datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'))
     try:
         os.mkdir(path)
     except FileExistsError:
@@ -45,7 +46,7 @@ def create_experiment_folder(path, experiment):
     :param experiment: The name of the experiment being performed
     :return: model: The name of the model currently running
     """
-    path_experiment = "{}\\{}".format(path, experiment)
+    path_experiment = os.path.join(path, experiment)
     try:
         os.mkdir(path_experiment)
     except OSError:
@@ -55,13 +56,38 @@ def create_experiment_folder(path, experiment):
 
 def create_model_folder(path, model):
 
-    path_model = "{}\\{} {}".format(path, model, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    path_model = os.path.join(path, model, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
     try:
         os.mkdir(path_model)
     except OSError:
         print("Creation of the directory %s failed" % path_model)
 
     return path_model
+
+
+def load(path, **kwargs):
+    with open(path, 'rb') as fp:
+        return pickle.load(fp, **kwargs)
+
+
+def dump(path, data, **kwargs):
+    with open(path, 'wb') as fp:
+        pickle.dump(data, fp, **kwargs)
+
+
+def save_plot(plt, path, plot_title, img_title, use_grid=True):
+    plt.grid(use_grid)
+    plt.legend()
+    plt.title(plot_title)
+    if path:
+        try:
+            img_name = "{}-{}.png".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_title)
+            plt.savefig(os.path.join(path, img_name),  bbox_inches='tight')
+        except ValueError:
+            print("Something went wrong while saving image")
+    else:
+        plt.show()
+    plt.close()
 
 
 def write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
