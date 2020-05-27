@@ -4,13 +4,14 @@ from constants import *
 from src import *
 
 
-def plot_results(scores_dict, scores_test_dict, score_passive, scorer, plot_args):
+def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args):
     """
     Plot the performance graphs.
 
     :param scores_dict: A dictionary holding the scores for each method on the train set
     :param scores_test_dict: A dictionary holding the scores for each method on the test set
     :param score_passive: An array holding the scores of the fully trained model
+    :param path: The path to the folder where the plots will be saved
     :param scorer: The metric used to calculate the scores
     :param plot_args: A dictionary holding additional arguments
 
@@ -18,13 +19,13 @@ def plot_results(scores_dict, scores_test_dict, score_passive, scorer, plot_args
     n_folds = plot_args["n_folds"]
 
     scores_dict_mean, scores_dict_std = get_mean_and_std(scores_dict, n_folds)
-    plot_acc(scores_dict_mean, scores_dict_std, score_passive, plot_args, "{} on train set", scorer)
+    plot_acc(scores_dict_mean, scores_dict_std, score_passive, plot_args, "{} on train set", scorer, path)
 
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
-    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive, plot_args, "{} on test set", scorer)
+    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive, plot_args, "{} on test set", scorer, path)
 
 
-def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_macro"):
+def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_macro", path=None):
     """
     Plot the accuracy scores as a function of the queried instances.
 
@@ -34,12 +35,12 @@ def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_ma
     :param plot_args: A dictionary holding additional arguments
     :param img_title: The title of the image to be saved
     :param scorer: The metric that has been used for calculating the performance
+    :param path: The path to the folder where the plots will be saved
 
     """
     annotated_point = plot_args["annotated_point"]
     model_name = plot_args["model_name"]
     max_iter = plot_args["max_iter"]
-    path = plot_args["path"]
 
     # for n in range(max_iter):
     n = max_iter
@@ -76,21 +77,23 @@ def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_ma
 
     plt.xlabel('Number of obtained labels')
     plt.ylabel(scorer)
-    # plt.ylim(0.8, 1.02)
+    plt.legend()
+    if "banknote" in path_experiment:
+        plt.ylim(0.8, 1.02)
     save_plot(plt, path, model_name, img_title.format(model_name))
 
 
-def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args):
+def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=None):
     """
     Plot the narrative bias.
 
     :param scores_test_dict: A dictionary holding the scores for each method on the test set
     :param scores_queries_dict: A dictionary holding the scores calculated from the queries
     :param plot_args: A dictionary holding additional arguments
+    :param path: The path to the folder where the plots will be saved
 
     """
     n_folds = plot_args["n_folds"]
-    path = plot_args["path"]
 
     scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
@@ -141,9 +144,12 @@ if __name__ == '__main__':
 
     pickles = [f for f in os.listdir(os.path.join(path_results, args.folder)) if f.endswith(".pickle")]
     for filename in pickles:
-        print("Plotting results from: ", filename)
+        experiment = filename.split("__")[0]
+        path_experiment = os.path.join(path_results, args.folder, experiment)
         results = load(os.path.join(path_results, args.folder, filename))
         # Plot the results
-        plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"], "f1_macro", results["args"])
-        plot_results(results["train_auc"], results["test_auc"], results["score_passive_auc"], "roc_auc", results["args"])
-        plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"])
+        plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"],
+                     path_experiment, "f1_macro", results["args"])
+        plot_results(results["train_auc"], results["test_auc"], results["score_passive_auc"],
+                     path_experiment, "roc_auc", results["args"])
+        plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], path_experiment)

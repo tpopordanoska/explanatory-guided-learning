@@ -114,7 +114,6 @@ for experiment_name in experiments:
         'args': {
             'n_folds': n_folds,
             'max_iter': max_iter,
-            'path': experiment_path,
             'model_name': experiment.model.name,
             'annotated_point': loop.annotated_point,
         },
