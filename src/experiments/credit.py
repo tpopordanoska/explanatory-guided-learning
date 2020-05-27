@@ -14,7 +14,10 @@ class Credit(Experiment):
         rng = kwargs.pop("rng")
         model = GradientBoosting()
 
-        data = pd.read_csv("src/experiments/data/credit_data.csv", header=1)
+        urls = ["https://archive.ics.uci.edu/ml/machine-learning-databases/00350/default of credit card clients.xls"]
+        self.load_dataset('data', urls)
+
+        data = pd.read_excel("data/default of credit card clients.xls", header=1)
         data.drop('ID', axis=1, inplace=True)
         global dataset
         dataset = Bunch(
