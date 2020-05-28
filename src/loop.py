@@ -372,14 +372,33 @@ class LearningLoop:
 
         return known_idx, train_idx
 
-    def train_and_get_acc(self, known_idx, train_idx, test_idx, query_idx=None):
+    def calculate_query_accuracy(self, known_idx, train_idx, query_idx):
+        """
+        Calculate score of the query for measuring narrative bias
+
+        :param known_idx: The indexes of the known set
+        :param train_idx: The indexes of the train set
+        :param query_idx: The index of the selected query in X
+
+        """
+        X_known = get_from_indexes(self.experiment.X, known_idx)
+        X_train = get_from_indexes(self.experiment.X, train_idx)
+
+        # Normalize the data
+        _, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+
+        if query_idx:
+            idx_in_train = np.where(train_idx == query_idx)[0][0]
+            query_predicted = self.experiment.model.predict(get_from_indexes(X_train_norm, idx_in_train).reshape(1, -1))
+            self.query_scores.append(int(self.experiment.y[query_idx] == query_predicted[0]))
+
+    def train_and_get_acc(self, known_idx, train_idx, test_idx):
         """
         Train the model and calculate the accuracy.
 
         :param known_idx: The indexes of the known set
         :param train_idx: The indexes of the train set
         :param test_idx: The indexes of the test set
-        :param query_idx: The index of the selected query in X
 
         :return: The predictions and the lists with the scores
         """
@@ -390,12 +409,6 @@ class LearningLoop:
 
         # Normalize the data
         X_known, X_train, X_test = Normalizer(self.experiment.normalizer).normalize_all(X_known, X_train, X_test)
-
-        # Calculate score of the query for measuring narrative bias
-        if query_idx:
-            idx_in_known = np.where(known_idx == query_idx)[0][0]
-            query_predicted = experiment.model.predict(get_from_indexes(X_known, idx_in_known).reshape(1, -1))
-            self.query_scores.append(int(experiment.y[query_idx] == query_predicted[0]))
 
         experiment.model.fit(X_known, y_known)
         y_pred = experiment.model.predict(X_train)
@@ -613,6 +626,7 @@ class LearningLoop:
             if query_idx is None:
                 continue
             self.file.write("Selected point: {}\n".format(get_from_indexes(self.experiment.X, query_idx)))
+            self.calculate_query_accuracy(known_idx, train_idx, query_idx)
 
             if not self.plots_off:
                 plot_decision_surface(self.experiment,
@@ -626,7 +640,7 @@ class LearningLoop:
             known_idx, train_idx = self.move(known_idx, train_idx, query_idx)
 
             # 4. Retrain the model with the new training set
-            y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx, query_idx)
+            y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)
 
         # Plot the decision surface
         if not self.plots_off:
