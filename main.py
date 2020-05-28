@@ -36,6 +36,7 @@ def run_experiment(strategies, args):
         scores_dict_auc = defaultdict(list)
         scores_test_dict_auc = defaultdict(list)
         scores_queries_dict_f1 = defaultdict(list)
+        false_mistakes_dict = defaultdict(list)
 
         # Initialize the learning loop
         loop = LearningLoop(experiment, args.n_clusters, args.max_iter, experiment_path,
@@ -74,6 +75,7 @@ def run_experiment(strategies, args):
                 scores_dict_auc[strategy].append(loop.scores_auc)
                 scores_test_dict_auc[strategy].append(loop.test_scores_auc)
                 scores_queries_dict_f1[strategy].append(loop.query_scores)
+                false_mistakes_dict[strategy].append(loop.false_mistakes_count)
 
         dump(experiment_path + '__scores.pickle', {
             'train_f1': scores_dict_f1,
@@ -83,6 +85,7 @@ def run_experiment(strategies, args):
             'queries_f1': scores_queries_dict_f1,
             'score_passive_f1': get_passive_score(experiment, file, args.n_folds, args.seed, "f1_macro"),
             'score_passive_auc': get_passive_score(experiment, file, args.n_folds, args.seed, "roc_auc"),
+            'false_mistakes': false_mistakes_dict,
             'args': {
                 'n_folds': args.n_folds,
                 'max_iter': args.max_iter,

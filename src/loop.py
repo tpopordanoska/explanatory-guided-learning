@@ -27,6 +27,7 @@ class LearningLoop:
         self.scores_auc = []
         self.test_scores_auc = []
         self.query_scores = []
+        self.false_mistakes_count = [0]
         self.cos_distance_matrix = None
         self.initial_train_idx = None
 
@@ -329,7 +330,13 @@ class LearningLoop:
             points_predictions = np.ones(len(points_pd)) * worst_rule[1]
             wrong_points_idx = points_pd[points_pd.labels != points_predictions]["idx_in_X"]
 
-        return int(select_random(wrong_points_idx, self.experiment.rng))
+        query_idx = int(select_random(wrong_points_idx, self.experiment.rng))
+        # Count false mistakes = wrongly classified point wrt rules but blackbox prediction is correct
+        selected_point = points_pd[points_pd["idx_in_X"] == query_idx]
+        is_false_mistake = int((selected_point.labels == selected_point.predictions).bool())
+        self.false_mistakes_count.append(is_false_mistake + self.false_mistakes_count[-1])
+
+        return query_idx
 
     def xgl_rules_hierarchy(self, **kwargs):
         """
@@ -576,6 +583,7 @@ class LearningLoop:
         self.scores_auc = []
         self.test_scores_auc = []
         self.query_scores = []
+        self.false_mistakes_count = [0]
         self.cos_distance_matrix = None
 
         # Get the theta value for XGL and rules or beta value for density based AL

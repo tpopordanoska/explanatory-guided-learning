@@ -120,6 +120,19 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=N
         save_plot(plt, path, method, method)
 
 
+def plot_false_mistakes(false_mistakes_dict, path):
+    for strategy, false_mistakes in false_mistakes_dict.items():
+        false_mistakes_mean = np.mean(false_mistakes, axis=0)
+        x = np.arange(len(false_mistakes_mean))
+        plt.plot(x, false_mistakes_mean, linewidth=2, markevery=20, label=LABELS_LOOKUP.get(strategy, strategy))
+
+        plt.xlabel('Number of obtained labels')
+        plt.ylabel("Number of false mistakes")
+        plt.legend()
+
+    save_plot(plt, path, "False mistakes", "False mistakes")
+
+
 def running_mean(data, window_width):
     cumsum = np.cumsum(np.insert(data, 0, 0))
     return (cumsum[window_width:] - cumsum[:-window_width]) / float(window_width)
@@ -153,3 +166,4 @@ if __name__ == '__main__':
         plot_results(results["train_auc"], results["test_auc"], results["score_passive_auc"],
                      path_experiment, "roc_auc", results["args"])
         plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], path_experiment)
+        plot_false_mistakes(results["false_mistakes"], path_experiment)
