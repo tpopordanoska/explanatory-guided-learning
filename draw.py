@@ -120,6 +120,27 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=N
         save_plot(plt, path, method, method)
 
 
+def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=None):
+    n_folds = plot_args["n_folds"]
+
+    scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
+    scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
+
+    for method, score in scores_queries_dict_mean.items():
+        test_score = scores_test_dict_mean[method]
+        score_ma = running_mean(score, 20)
+        difference = test_score[:len(score_ma)] - score_ma
+
+        x = np.arange(len(difference))
+        plt.plot(x, difference, linewidth=2, markevery=20, label=LABELS_LOOKUP.get(method, method))
+
+        plt.xlabel('Number of obtained labels')
+        plt.ylabel("f1_macro")
+        plt.legend()
+
+    save_plot(plt, path, "Narrative bias", "Narrative bias")
+
+
 def plot_false_mistakes(false_mistakes_dict, path):
     for strategy, false_mistakes in false_mistakes_dict.items():
         false_mistakes_mean = np.mean(false_mistakes, axis=0)
@@ -166,4 +187,5 @@ if __name__ == '__main__':
         plot_results(results["train_auc"], results["test_auc"], results["score_passive_auc"],
                      path_experiment, "roc_auc", results["args"])
         plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], path_experiment)
+        plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], path_experiment)
         plot_false_mistakes(results["false_mistakes"], path_experiment)
