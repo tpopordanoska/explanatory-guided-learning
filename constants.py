@@ -1,5 +1,14 @@
 from src.experiments import *
 
+# List of sampling strategies
+STRATEGIES = ["random",
+              "al_least_confident",
+              "al_density_weighted",
+              "sq_random",
+              "xgl",
+              'rules',
+              'rules_hierarchy']
+
 EXPERIMENTS = {
     "german": lambda **kwargs: German(**kwargs),
     "habermans-survival": lambda **kwargs: HabermansSurvival(**kwargs),

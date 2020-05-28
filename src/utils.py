@@ -77,7 +77,6 @@ def dump(path, data, **kwargs):
 
 def save_plot(plt, path, plot_title, img_title, use_grid=True):
     plt.grid(use_grid)
-    plt.legend()
     plt.title(plot_title)
     if path:
         try:
@@ -90,8 +89,29 @@ def save_plot(plt, path, plot_title, img_title, use_grid=True):
     plt.close()
 
 
+def create_strategies_list(args):
+    methods = []
+    if "al_density_weighted" in args.strategies:
+        args.strategies.remove("al_density_weighted")
+        for beta in args.betas:
+            methods.append("al_density_weighted_{}".format(beta))
+    if "rules" in args.strategies:
+        args.strategies.remove("rules")
+        for theta_rules in args.thetas_rules:
+            methods.append("rules_{}".format(theta_rules))
+    if "rules_hierarchy" in args.strategies:
+        args.strategies.remove("rules_hierarchy")
+        for theta_rules in args.thetas_rules:
+            methods.append("rules_hierarchy_{}".format(theta_rules))
+    if "xgl" in args.strategies:
+        args.strategies.remove("xgl")
+        for theta_xgl in args.thetas_xgl:
+            methods.append("xgl_{}".format(theta_xgl))
+    return methods + args.strategies
+
+
 def write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
-                  method, n_clusters, n_folds, thetas, use_weights, use_labels):
+                  method, n_clusters, n_folds, use_weights, use_labels):
     # Write parameters to file
     file.write('seed, fold {} : #known {}, #train {}, #test {} \n'
                .format(seed, k + 1, len(known_idx), len(train_idx), len(test_idx)))
@@ -105,7 +125,7 @@ def write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
     print(method)
     file.write("Method: {} \n".format(method))
     file.write("Model: {}\n".format(experiment.model.sklearn_model))
-    file.write("{} clusters, {} folds, {} seed, {} thetas\n".format(n_clusters, n_folds, seed, thetas))
+    file.write("{} clusters, {} folds, {} seed\n".format(n_clusters, n_folds, seed))
     file.write("use_weights={}, use_labels={}\n".format(use_weights, use_labels))
 
 
