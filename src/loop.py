@@ -291,39 +291,43 @@ class LearningLoop:
             if self.compare_performance(clf, 0.15, **kwargs):
                 break
 
-        # Get the worst rule
-        worst_rule = self.get_worst_rule(X_known_train_pd, theta, clf)
-        if worst_rule is None:
-            return None
+        sorted_rules = self.extract_rules(X_known_train_pd, clf)
+        wrong_points_idx = []
+        while len(wrong_points_idx) == 0:
+            if len(sorted_rules) == 0:
+                print("Selecting at random")
+                return select_random(train_idx, self.experiment.rng)
 
-        if hierarchy:
+            # Get the worst rule from the remaining rules
+            worst_rule = self.select_rule(sorted_rules, theta)
+
+            if hierarchy:
+                # Find the points that satisfy the chosen rule
+                points_known_train_pd = self.get_points_satisfying_rule(X_known_train_pd, worst_rule[0])
+                kt_predictions = points_known_train_pd.predictions.to_numpy()
+                if isinstance(self.experiment, Synthetic):
+                    # Sample new points
+                    extra_points_pd = self.generate_points_satisfying_rule(points_known_train_pd, worst_rule[0])
+                    # Append them to points_known_train_pd and kt_predictions
+                    points_known_train_pd = points_known_train_pd.append(extra_points_pd, sort=False)
+                    kt_predictions = np.concatenate((kt_predictions, extra_points_pd.predictions.to_numpy()), axis=0)
+
+                # Check if all predictions are the same
+                if not all(element == kt_predictions[0] for element in kt_predictions):
+                    # Get worst rule from the new points
+                    self.file.write("Computing hierarchical rules...")
+                    sorted_rules_hierarchy = self.extract_rules(points_known_train_pd, clf)
+                    if len(sorted_rules_hierarchy) == 0:
+                        print("Selecting at random in hierarchy")
+                        return select_random(train_idx, self.experiment.rng)
+                    worst_rule = self.select_rule(sorted_rules_hierarchy, theta)
+                    X_train_pd = points_known_train_pd[points_known_train_pd["is_train"]]
+
             # Find the points that satisfy the chosen rule
-            points_known_train_pd = self.get_points_satisfying_rule(X_known_train_pd, worst_rule[0])
-            kt_predictions = points_known_train_pd.predictions.to_numpy()
-            if isinstance(self.experiment, Synthetic):
-                # Sample new points
-                extra_points_pd = self.generate_points_satisfying_rule(points_known_train_pd, worst_rule[0])
-                # Append them to points_known_train_pd and kt_predictions
-                points_known_train_pd = points_known_train_pd.append(extra_points_pd, sort=False)
-                kt_predictions = np.concatenate((kt_predictions, extra_points_pd.predictions.to_numpy()), axis=0)
-
-            # Check if all predictions are the same
-            if not all(element == kt_predictions[0] for element in kt_predictions):
-                # Get worst rule from the new points
-                print("Hierarchical rule selection")
-                worst_rule = self.get_worst_rule(points_known_train_pd, theta, clf)
-                if worst_rule is None:
-                    return None
-                X_train_pd = points_known_train_pd[points_known_train_pd["is_train"]]
-
-        # Find the points that satisfy the chosen rule
-        points_pd = self.get_points_satisfying_rule(X_train_pd, worst_rule[0])
-        # From those, find the ones that are wrongly classified wrt the rules
-        points_predictions = np.ones(len(points_pd)) * worst_rule[1]
-        wrong_points_idx = points_pd[points_pd.labels != points_predictions]["idx_in_X"]
-
-        if len(wrong_points_idx) == 0:
-            return select_random(train_idx, self.experiment.rng)
+            points_pd = self.get_points_satisfying_rule(X_train_pd, worst_rule[0])
+            # From those, find the ones that are wrongly classified wrt the rules
+            points_predictions = np.ones(len(points_pd)) * worst_rule[1]
+            wrong_points_idx = points_pd[points_pd.labels != points_predictions]["idx_in_X"]
 
         return int(select_random(wrong_points_idx, self.experiment.rng))
 
@@ -461,10 +465,11 @@ class LearningLoop:
 
     def generate_points(self, points):
         # 1. Generate new points
-        h = 0.05
         x_min, x_max = points.x.min(), points.x.max()
         y_min, y_max = points.y.min(), points.y.max()
-        xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+        h_x = (x_max - x_min) / 100
+        h_y = (y_max - y_min) / 100
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, h_x), np.arange(y_min, y_max, h_y))
         extra_points = np.c_[xx.ravel(), yy.ravel()]
         extra_points_pd = pd.DataFrame(data=extra_points, columns=self.experiment.feature_names)
 
@@ -507,7 +512,18 @@ class LearningLoop:
 
         return np.abs(score_blackbox - score_rules) < threshold
 
-    def get_worst_rule(self, data, theta, clf):
+    def select_rule(self, rules, theta):
+        logits = [1-x[2] for x in rules]
+        exps = [np.exp(i * theta - max(logits)) for i in logits]
+        softmax = [j / sum(exps) for j in exps]
+        selected_rule_idx = self.experiment.rng.choice(len(rules), p=softmax)
+
+        selected_rule = rules[selected_rule_idx]
+        del rules[selected_rule_idx]
+
+        return selected_rule
+
+    def extract_rules(self, data, clf):
         X_known_train_features = data.drop(['is_train', 'predictions', 'labels', 'idx_in_X'], axis=1)
         predictions = data['predictions']
         X_train_pd = data[data["is_train"]]
@@ -528,23 +544,15 @@ class LearningLoop:
                     # Each element in rules is a tuple (rule, class, f1_score wrt rules, f1_score wrt classifier)
                     rules.append((rule[0], idx, score, score_blackbox))
             if not self.plots_off:
-                plot_rules(clf, data, predictions == idx, idx, self.path)
+                plot_rules(clf, X_known_train_features.to_numpy(), predictions == idx, idx, self.path)
 
         self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
-        print("Number of extracted rules: ", len(rules))
+        self.file.write("Number of extracted rules: {}". format(len(rules)))
 
         # Sort by the f1_score wrt the rules
         rules.sort(key=lambda x: x[2], reverse=True)
 
-        if len(rules) == 0:
-            return None
-
-        logits = [1-x[2] for x in rules]
-        exps = [np.exp(i * theta - max(logits)) for i in logits]
-        softmax = [j / sum(exps) for j in exps]
-        selected_rule_idx = self.experiment.rng.choice(len(rules), p=softmax)
-
-        return rules[selected_rule_idx]
+        return rules
 
     @staticmethod
     def get_points_satisfying_rule(X, rule):
