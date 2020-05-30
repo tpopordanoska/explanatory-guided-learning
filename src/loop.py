@@ -316,7 +316,7 @@ class LearningLoop:
                 # Check if all predictions are the same
                 if not all(element == kt_predictions[0] for element in kt_predictions):
                     # Get worst rule from the new points
-                    self.file.write("Computing hierarchical rules...")
+                    self.file.write("Computing hierarchical rules... \n")
                     sorted_rules_hierarchy = self.extract_rules(points_known_train_pd, clf)
                     if len(sorted_rules_hierarchy) == 0:
                         print("Selecting at random in hierarchy")
@@ -566,8 +566,8 @@ class LearningLoop:
             if not self.plots_off:
                 plot_rules(clf, X_known_train_features.to_numpy(), predictions == idx, idx, self.path)
 
-        self.file.write("Parameters for Skope Rules: {}".format(clf.get_params()))
-        self.file.write("Number of extracted rules: {}". format(len(rules)))
+        self.file.write("Parameters for Skope Rules: {} \n".format(clf.get_params()))
+        self.file.write("Number of extracted rules: {} \n". format(len(rules)))
 
         # Sort by the f1_score wrt the rules
         rules.sort(key=lambda x: x[2], reverse=True)

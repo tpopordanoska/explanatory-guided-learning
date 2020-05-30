@@ -197,9 +197,6 @@ def plot_points(X, y, title="", path=None):
     """
     figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
     plt.scatter(X[:, 0], X[:, 1], c=y, marker='o', s=45, cmap=plt.cm.coolwarm)
-    # set axes range
-    plt.xlim(X[:, 0].min() - 0.1, X[:, 0].max() + 0.1)
-    plt.ylim(X[:, 1].min() - 0.1, X[:, 1].max() + 0.1)
 
     save_plot(plt, path, title, title)
 

@@ -38,33 +38,24 @@ def create_folders():
     return path
 
 
-def create_experiment_folder(path, experiment):
+def create_folder(path, folder_name):
     """
     Create folder for storing results for the given experiment and model
 
-    :param path: Path to the folder created when the script is run
-    :param experiment: The name of the experiment being performed
-    :return: model: The name of the model currently running
+    :param path: Path to the folder to be created 
+    :param folder_name: The name of the folder to be created
+
+    :return: path_folder: The path to the created folder
     """
-    path_experiment = os.path.join(path, experiment)
-    try:
-        os.mkdir(path_experiment)
-    except OSError:
-        print("Creation of the directory %s failed" % path_experiment)
-    return path_experiment
-
-
-def create_model_folder(path, model):
-
-    path_model = os.path.join(path, model, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-    try:
-        os.mkdir(path_model)
-    except OSError:
-        print("Creation of the directory %s failed" % path_model)
-
-    return path_model
-
-
+    path_folder = os.path.join(path, folder_name)
+    if not os.path.exists(path_folder):
+        try:
+            os.mkdir(path_folder)
+        except OSError:
+            print("Creation of the directory %s failed" % path_folder)
+    return path_folder
+ 
+ 
 def load(path, **kwargs):
     with open(path, 'rb') as fp:
         return pickle.load(fp, **kwargs)
@@ -75,15 +66,16 @@ def dump(path, data, **kwargs):
         pickle.dump(data, fp, **kwargs)
 
 
-def save_plot(plt, path, plot_title, img_title, use_grid=True):
+def save_plot(plt, path, plot_title, img_name, use_grid=True, use_date=True):
     plt.grid(use_grid)
     plt.title(plot_title)
     if path:
         try:
-            img_name = "{}-{}.png".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_title)
+            if use_date:
+                img_name = "{}-{}.png".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_name)
             plt.savefig(os.path.join(path, img_name),  bbox_inches='tight')
         except ValueError:
-            print("Something went wrong while saving image")
+            print("Something went wrong while saving image: ", img_name)
     else:
         plt.show()
     plt.close()

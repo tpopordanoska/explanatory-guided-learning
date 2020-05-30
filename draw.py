@@ -3,8 +3,15 @@ import argparse
 from constants import *
 from src import *
 
+FORMATTING_METHODS = {
+    "al_density_weighted_1": "al-dw",
+    "al_least_confident": "al-us",
+    "rules_100.0": "xgl-rules",
+    "sq_random": "gl"
+}
 
-def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args):
+
+def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args, strategies, exp):
     """
     Plot the performance graphs.
 
@@ -14,18 +21,19 @@ def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plo
     :param path: The path to the folder where the plots will be saved
     :param scorer: The metric used to calculate the scores
     :param plot_args: A dictionary holding additional arguments
+    :param strategies: A list of strategies to be plotted
 
     """
     n_folds = plot_args["n_folds"]
 
     scores_dict_mean, scores_dict_std = get_mean_and_std(scores_dict, n_folds)
-    plot_acc(scores_dict_mean, scores_dict_std, score_passive, plot_args, "{} on train set", scorer, path)
+    plot_acc(scores_dict_mean, scores_dict_std, score_passive, plot_args, strategies, " train set", scorer, path)
 
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
-    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive, plot_args, "{} on test set", scorer, path)
+    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive, plot_args, strategies, exp, scorer, path)
 
 
-def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_macro", path=None):
+def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", scorer="f1_macro", path=None):
     """
     Plot the accuracy scores as a function of the queried instances.
 
@@ -33,6 +41,7 @@ def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_ma
     :param stds: Dictionary containing the standard deviations for each method
     :param score_passive: The f1 score of the experiment in a passive setting
     :param plot_args: A dictionary holding additional arguments
+    :param strategies: A list of strategies to be plotted
     :param img_title: The title of the image to be saved
     :param scorer: The metric that has been used for calculating the performance
     :param path: The path to the folder where the plots will be saved
@@ -45,6 +54,8 @@ def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_ma
     # for n in range(max_iter):
     n = max_iter
     for i, (key, score) in enumerate(scores.items()):
+        if key not in strategies:
+            continue
         x = np.arange(len(score))
         plt.plot(x[:n], score[:n],
                  label=LABELS_LOOKUP.get(key, key),
@@ -80,16 +91,17 @@ def plot_acc(scores, stds, score_passive, plot_args, img_title="", scorer="f1_ma
     plt.legend()
     if "banknote" in path_experiment:
         plt.ylim(0.8, 1.02)
-    save_plot(plt, path, model_name, img_title.format(model_name))
+    save_plot(plt, path, model_name, img_title, use_date=False)
 
 
-def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=None):
+def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, path=None):
     """
     Plot the narrative bias.
 
     :param scores_test_dict: A dictionary holding the scores for each method on the test set
     :param scores_queries_dict: A dictionary holding the scores calculated from the queries
     :param plot_args: A dictionary holding additional arguments
+    :param exp: The experiment name
     :param path: The path to the folder where the plots will be saved
 
     """
@@ -116,42 +128,49 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=N
 
         plt.xlabel('Number of obtained labels')
         plt.ylabel("f1_macro")
+        plt.legend()
+        img_title = "nb_{}_{}".format(exp, FORMATTING_METHODS.get(method, method))
+        save_plot(plt, path, method, img_title, use_date=False)
 
-        save_plot(plt, path, method, method)
 
-
-def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, path=None):
+def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, path=None):
     n_folds = plot_args["n_folds"]
 
     scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
 
-    for method, score in scores_queries_dict_mean.items():
+    for i, (method, score) in enumerate(scores_queries_dict_mean.items()):
         test_score = scores_test_dict_mean[method]
         score_ma = running_mean(score, 20)
         difference = test_score[:len(score_ma)] - score_ma
 
         x = np.arange(len(difference))
-        plt.plot(x, difference, linewidth=2, markevery=20, label=LABELS_LOOKUP.get(method, method))
+        plt.plot(x, difference,
+                 color=COLORS[i] if i < len(COLORS) else "black",
+                 label=LABELS_LOOKUP.get(method, method),
+                 linewidth=2,
+                 markevery=20)
 
         plt.xlabel('Number of obtained labels')
         plt.ylabel("f1_macro")
         plt.legend()
 
-    save_plot(plt, path, "Narrative bias", "Narrative bias")
+    nb_path = create_folder(path, "narrative_bias")
+    save_plot(plt, nb_path, "Narrative bias", exp, use_date=False)
 
 
 def plot_false_mistakes(false_mistakes_dict, path):
     for strategy, false_mistakes in false_mistakes_dict.items():
-        false_mistakes_mean = np.mean(false_mistakes, axis=0)
+        smallest_len = min([len(x) for x in false_mistakes])
+        false_mistakes_smallest_len = [s[:smallest_len] for s in false_mistakes]
+        false_mistakes_mean = np.mean(false_mistakes_smallest_len, axis=0)
         x = np.arange(len(false_mistakes_mean))
         plt.plot(x, false_mistakes_mean, linewidth=2, markevery=20, label=LABELS_LOOKUP.get(strategy, strategy))
 
         plt.xlabel('Number of obtained labels')
         plt.ylabel("Number of false mistakes")
-        plt.legend()
 
-    save_plot(plt, path, "False mistakes", "False mistakes")
+    save_plot(plt, path, "False mistakes", "False mistakes", use_date=False)
 
 
 def running_mean(data, window_width):
@@ -173,19 +192,32 @@ if __name__ == '__main__':
                         type=str,
                         default=result_folders[-1],
                         help="The name of the folder where the .pickle file is stored")
+    parser.add_argument('--strategies',
+                        nargs='+',
+                        choices=sorted(STRATEGIES),
+                        default=STRATEGIES)
+    parser.add_argument('--betas',
+                        default=[1],
+                        help="The beta values for density weighted AL")
+    parser.add_argument('--thetas_rules',
+                        default=[100.0],
+                        help="The theta values for softmax in XGL(rules)")
+    parser.add_argument('--thetas_xgl',
+                        default=[1.0],
+                        help="The theta values for softmax in XGL(clustering)")
 
     args = parser.parse_args()
+    strategies = create_strategies_list(args)
+    path_folder = os.path.join(path_results, args.folder)
 
-    pickles = [f for f in os.listdir(os.path.join(path_results, args.folder)) if f.endswith(".pickle")]
+    pickles = [f for f in os.listdir(path_folder) if f.endswith(".pickle")]
     for filename in pickles:
         experiment = filename.split("__")[0]
-        path_experiment = os.path.join(path_results, args.folder, experiment)
+        path_experiment = create_folder((os.path.join(path_results, args.folder)), experiment)
         results = load(os.path.join(path_results, args.folder, filename))
         # Plot the results
         plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"],
-                     path_experiment, "f1_macro", results["args"])
-        plot_results(results["train_auc"], results["test_auc"], results["score_passive_auc"],
-                     path_experiment, "roc_auc", results["args"])
-        plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], path_experiment)
-        plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], path_experiment)
+                     path_experiment, "f1_macro", results["args"], strategies, experiment)
+        plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_experiment)
+        plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_folder)
         plot_false_mistakes(results["false_mistakes"], path_experiment)

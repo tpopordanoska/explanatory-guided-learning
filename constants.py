@@ -56,7 +56,7 @@ LABELS_LOOKUP = {
     "100": "100 prototypes"
 }
 
-COLORS = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple',
+COLORS = ['tab:blue', 'tab:red', 'tab:orange', 'tab:green', 'tab:purple',
           'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan', 'tab:brown']
 
 MARKERS = ['o', 'v', 's', 'D', 'p', '*', 'd', '<', '<', "x"]

@@ -27,7 +27,7 @@ def run_experiment(strategies, args):
                                                   balanced_db=balanced_db)
 
         # Create folders and file for logging
-        experiment_path = create_experiment_folder(path_to_main_file, experiment_name)
+        experiment_path = create_folder(path_to_main_file, experiment_name)
         file = open(os.path.join(experiment_path, 'out.txt'), 'w')
 
         # Initialize results dictionaries
@@ -67,7 +67,7 @@ def run_experiment(strategies, args):
                 start = time.time()
                 loop.run(strategy, known_idx, train_idx, test_idx)
                 end = time.time()
-                file.write("Execution time: " + str(end - start))
+                file.write("Execution time: {} \n".format(str(end - start)))
 
                 # Collect the results for each strategy in a dictionary
                 scores_dict_f1[strategy].append(loop.scores_f1)
