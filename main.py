@@ -132,12 +132,15 @@ def main():
                         default=True,
                         help="Whether to plot additional graphs")
     parser.add_argument('--betas',
+                        nargs='+',
                         default=[1],
                         help="The beta values for density weighted AL")
     parser.add_argument('--thetas_rules',
+                        nargs='+',
                         default=[100.0],
                         help="The theta values for softmax in XGL(rules)")
     parser.add_argument('--thetas_xgl',
+                        nargs='+',
                         default=[1.0],
                         help="The theta values for softmax in XGL(clustering)")
 
