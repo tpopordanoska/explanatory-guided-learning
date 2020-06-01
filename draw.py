@@ -7,9 +7,23 @@ FORMATTING_METHODS = {
     "al_density_weighted_1": "al-dw",
     "al_least_confident": "al-us",
     "rules_100.0": "xgl-rules",
-    "sq_random": "gl"
+    "sq_random": "gl",
+    "rules_10.0": "xgl-rules10",
+    "rules_1.0": "xgl-rules1",
+    "rules_hierarchy_100.0": "xgl-rules_hierarchy",
 }
 
+SMALL_SIZE = 12
+MEDIUM_SIZE = 14
+BIGGER_SIZE = 18
+
+plt.rc('font', size=MEDIUM_SIZE)         # controls default text sizes
+plt.rc('axes', titlesize=BIGGER_SIZE)    # fontsize of the axes title
+plt.rc('axes', labelsize=BIGGER_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=MEDIUM_SIZE)   # legend fontsize
+plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args, strategies, exp):
     """
@@ -53,7 +67,8 @@ def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", s
 
     # for n in range(max_iter):
     n = max_iter
-    for i, (key, score) in enumerate(scores.items()):
+    i = 0
+    for key, score in scores.items():
         if key not in strategies:
             continue
         x = np.arange(len(score))
@@ -75,6 +90,7 @@ def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", s
                          xy=(annotated, score[annotated]),
                          xytext=(annotated - 10, score[annotated] - 0.1),
                          arrowprops=dict(color="black", arrowstyle="->", connectionstyle="arc3"))
+        i += 1
 
     x = np.arange(len(max(scores.values(), key=lambda value: len(value))))
     passive_mean = np.array([score_passive["mean"] for i in range(len(x))])
@@ -133,13 +149,15 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, p
         save_plot(plt, path, method, img_title, use_date=False)
 
 
-def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, path=None):
+def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, arg_strategies, path=None):
     n_folds = plot_args["n_folds"]
 
     scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
-
-    for i, (method, score) in enumerate(scores_queries_dict_mean.items()):
+    i = 0
+    for method, score in scores_queries_dict_mean.items():
+        if method not in arg_strategies:
+            continue
         test_score = scores_test_dict_mean[method]
         score_ma = running_mean(score, 20)
         difference = test_score[:len(score_ma)] - score_ma
@@ -154,6 +172,7 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
         plt.xlabel('Number of obtained labels')
         plt.ylabel("f1_macro")
         plt.legend()
+        i += 1
 
     nb_path = create_folder(path, "narrative_bias")
     save_plot(plt, nb_path, "Narrative bias", exp, use_date=False)
@@ -197,12 +216,15 @@ if __name__ == '__main__':
                         choices=sorted(STRATEGIES),
                         default=STRATEGIES)
     parser.add_argument('--betas',
+                        nargs='+',
                         default=[1],
                         help="The beta values for density weighted AL")
     parser.add_argument('--thetas_rules',
+                        nargs='+',
                         default=[100.0],
                         help="The theta values for softmax in XGL(rules)")
     parser.add_argument('--thetas_xgl',
+                        nargs='+',
                         default=[1.0],
                         help="The theta values for softmax in XGL(clustering)")
 
@@ -219,5 +241,6 @@ if __name__ == '__main__':
         plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"],
                      path_experiment, "f1_macro", results["args"], strategies, experiment)
         plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_experiment)
-        plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_folder)
+        plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"],
+                                    experiment, strategies, path_folder)
         plot_false_mistakes(results["false_mistakes"], path_experiment)
