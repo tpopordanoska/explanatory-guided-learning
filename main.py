@@ -147,6 +147,7 @@ def main():
     args = parser.parse_args()
     strategies = create_strategies_list(args)
 
+    np.random.seed(args.seed)
     run_experiment(strategies, args)
 
 
