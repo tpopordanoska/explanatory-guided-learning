@@ -43,7 +43,7 @@ def create_results_table(pickle_files, result_file, path, folder):
 
 def narrative_bias_mean(test_scores, query_scores):
     score_ma = running_mean(query_scores, 20)
-    return np.mean(test_scores[:len(score_ma)] - score_ma)
+    return np.mean(score_ma - test_scores[:len(score_ma)])
 
 
 def running_mean(data, window_width):

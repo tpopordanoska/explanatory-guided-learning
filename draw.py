@@ -160,7 +160,7 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
             continue
         test_score = scores_test_dict_mean[method]
         score_ma = running_mean(score, 20)
-        difference = test_score[:len(score_ma)] - score_ma
+        difference = score_ma - test_score[:len(score_ma)]
 
         x = np.arange(len(difference))
         plt.plot(x, difference,
