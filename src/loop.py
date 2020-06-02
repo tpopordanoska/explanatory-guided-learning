@@ -277,14 +277,13 @@ class LearningLoop:
 
         n_estimators = [5, 15, 30]
         num_features = len(self.experiment.feature_names)
-        max_depth = num_features * 2 if num_features < 5 else num_features
+        max_depth = num_features if num_features < 5 else num_features/2
         for n_estim in n_estimators:
+            max_depth += 2
             clf = SkopeRules(n_estimators=n_estim,
                              precision_min=0.4,
                              recall_min=0.01,
                              max_depth=max_depth,
-                             max_features=None,
-                             max_samples=1.0,
                              random_state=self.experiment.rng,
                              feature_names=column_names)
 
@@ -296,7 +295,7 @@ class LearningLoop:
         wrong_points_idx = []
         while len(wrong_points_idx) == 0:
             if len(sorted_rules) == 0:
-                print("Selecting at random")
+                self.file.write("Selecting at random")
                 return select_random(train_idx, self.experiment.rng)
 
             # Get the worst rule from the remaining rules
@@ -319,7 +318,7 @@ class LearningLoop:
                     self.file.write("Computing hierarchical rules... \n")
                     sorted_rules_hierarchy = self.extract_rules(points_known_train_pd, clf)
                     if len(sorted_rules_hierarchy) == 0:
-                        print("Selecting at random in hierarchy")
+                        self.file.write("Selecting at random in hierarchy \n")
                         return select_random(train_idx, self.experiment.rng)
                     worst_rule = self.select_rule(sorted_rules_hierarchy, theta)
                     X_train_pd = points_known_train_pd[points_known_train_pd["is_train"]]
