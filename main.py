@@ -121,7 +121,7 @@ def main():
                         help='Maximum number of iterations')
     parser.add_argument('--n_folds',
                         type=int,
-                        default=3,
+                        default=10,
                         help="Number of cross-validation folds")
     parser.add_argument('--n_clusters',
                         type=int,
