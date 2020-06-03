@@ -158,7 +158,7 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
     scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
     i = 0
-    for method, score in scores_queries_dict_mean.items():
+    for method, score in sorted(scores_queries_dict_mean.items()):
         if method not in arg_strategies:
             continue
         test_score = scores_test_dict_mean[method]
