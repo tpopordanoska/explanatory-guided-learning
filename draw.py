@@ -11,6 +11,9 @@ FORMATTING_METHODS = {
     "rules_10.0": "xgl-rules10",
     "rules_1.0": "xgl-rules1",
     "rules_hierarchy_100.0": "xgl-rules_hierarchy",
+    "rules_hierarchy_10.0": "rules_hierarchy",
+    "rules_hierarchy_1.0":  "xgl-rules_hierarchy",
+    "xgl_1.0": "xgl"
 }
 
 SMALL_SIZE = 12
@@ -24,6 +27,7 @@ plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=MEDIUM_SIZE)   # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
 
 def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args, strategies, exp):
     """
@@ -68,7 +72,7 @@ def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", s
     # for n in range(max_iter):
     n = max_iter
     i = 0
-    for key, score in scores.items():
+    for key, score in sorted(scores.items()):
         if key not in strategies:
             continue
         x = np.arange(len(score))
@@ -126,7 +130,7 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, p
     scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
 
-    for method, score in scores_queries_dict_mean.items():
+    for method, score in sorted(scores_queries_dict_mean.items()):
         test_score = scores_test_dict_mean[method]
         x = np.arange(len(test_score))
         plt.plot(x, test_score, linewidth=2, markevery=20, label="test")
@@ -143,7 +147,6 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, p
         plt.plot(x, score_ma, linewidth=2, markevery=20, label="queries_ma")
 
         plt.xlabel('Number of obtained labels')
-        plt.ylabel("f1_macro")
         plt.legend()
         img_title = "nb_{}_{}".format(exp, FORMATTING_METHODS.get(method, method))
         save_plot(plt, path, method, img_title, use_date=False)
@@ -170,7 +173,6 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
                  markevery=20)
 
         plt.xlabel('Number of obtained labels')
-        plt.ylabel("f1_macro")
         plt.legend()
         i += 1
 
@@ -178,8 +180,10 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
     save_plot(plt, nb_path, "Narrative bias", exp, use_date=False)
 
 
-def plot_false_mistakes(false_mistakes_dict, path):
-    for strategy, false_mistakes in false_mistakes_dict.items():
+def plot_false_mistakes(false_mistakes_dict, path, strategies):
+    for strategy, false_mistakes in sorted(false_mistakes_dict.items()):
+        if strategy not in strategies or "rules" not in strategy:
+            continue
         smallest_len = min([len(x) for x in false_mistakes])
         false_mistakes_smallest_len = [s[:smallest_len] for s in false_mistakes]
         false_mistakes_mean = np.mean(false_mistakes_smallest_len, axis=0)
@@ -188,6 +192,7 @@ def plot_false_mistakes(false_mistakes_dict, path):
 
         plt.xlabel('Number of obtained labels')
         plt.ylabel("Number of false mistakes")
+        plt.legend()
 
     save_plot(plt, path, "False mistakes", "False mistakes", use_date=False)
 
@@ -205,7 +210,6 @@ def moving_average(interval, window_size):
 if __name__ == '__main__':
     path_results = os.path.join(os.getcwd(), "results")
     result_folders = os.listdir(path_results)
-    last_result_folder_files = os.listdir(os.path.join(path_results, result_folders[-1]))
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--folder',
                         type=str,
@@ -239,8 +243,8 @@ if __name__ == '__main__':
         results = load(os.path.join(path_results, args.folder, filename))
         # Plot the results
         plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"],
-                     path_experiment, "f1_macro", results["args"], strategies, experiment)
+                     path_experiment, "avg $F_1$", results["args"], strategies, experiment)
         plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_experiment)
         plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"],
                                     experiment, strategies, path_folder)
-        plot_false_mistakes(results["false_mistakes"], path_experiment)
+        plot_false_mistakes(results["false_mistakes"], path_experiment, strategies)
