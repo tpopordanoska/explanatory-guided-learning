@@ -33,9 +33,9 @@ def create_results_table(pickle_files, result_file, path, folder):
         experiment_string = FORMATTING[filename.split("__")[0]]
         for strategy in RESULT_TABLE:
             avg_f1 = np.mean(test_dict_mean[strategy])
-            last_f1 = test_dict_mean[strategy][-1]
+            std_f1 = np.std(test_dict_mean[strategy])
             narrative_bias = narrative_bias_mean(test_dict_mean[strategy], queries_dict_mean[strategy])
-            experiment_string += " & {:.2f} & {:.2f} & {:.2f}".format(avg_f1, last_f1, narrative_bias)
+            experiment_string += " & ${:.2f} \pm {:.2f}$ & {:.2f}".format(avg_f1, std_f1, narrative_bias)
         final_string += experiment_string + " \\\\ \n"
 
     result_file.write(final_string)
