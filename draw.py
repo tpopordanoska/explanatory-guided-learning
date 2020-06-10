@@ -111,7 +111,7 @@ def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", s
     plt.legend()
     if "banknote" in path_experiment:
         plt.ylim(0.8, 1.02)
-    save_plot(plt, path, model_name, img_title, use_date=False)
+    save_plot(plt, path, img_title, model_name, use_date=False)
 
 
 def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, path=None):
@@ -154,30 +154,39 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, p
 
 def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, arg_strategies, path=None):
     n_folds = plot_args["n_folds"]
-
-    scores_queries_dict_mean, scores_queries_dict_std = get_mean_and_std(scores_queries_dict, n_folds)
-    scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
     i = 0
-    for method, score in sorted(scores_queries_dict_mean.items()):
+    for method, scores_queries in sorted(scores_queries_dict.items()):
         if method not in arg_strategies:
             continue
-        test_score = scores_test_dict_mean[method]
-        score_ma = running_mean(score, 20)
-        difference = score_ma - test_score[:len(score_ma)]
+        scores_test = scores_test_dict[method]
+        differences = []
+        for score_queries, score_test in zip(scores_queries, scores_test):
+            score_ma = running_mean(score_queries, 20)
+            differences.append(score_ma - score_test[:len(score_ma)])
 
-        x = np.arange(len(difference))
-        plt.plot(x, difference,
+        smallest_len = min([len(x) for x in differences])
+        differences_smallest_len = [s[:smallest_len] for s in differences]
+        difference_mean = np.mean(differences_smallest_len, axis=0)
+        difference_std = np.std(differences_smallest_len, axis=0) / np.sqrt(n_folds)
+
+        x = np.arange(len(difference_mean))
+        plt.plot(x, difference_mean,
                  color=COLORS[i] if i < len(COLORS) else "black",
                  label=LABELS_LOOKUP.get(method, method),
+                 marker=MARKERS[i] if i < len(MARKERS) else ".",
                  linewidth=2,
                  markevery=20)
 
+        plt.fill_between(x, difference_mean - difference_std, difference_mean + difference_std,
+                         color=COLORS[i] if i < len(COLORS) else "black",
+                         alpha=0.25,
+                         linewidth=0)
         plt.xlabel('Number of obtained labels')
         plt.legend()
         i += 1
 
     nb_path = create_folder(path, "narrative_bias")
-    save_plot(plt, nb_path, "Narrative bias", exp, use_date=False)
+    save_plot(plt, nb_path, exp, "Narrative bias", use_date=False)
 
 
 def plot_false_mistakes(false_mistakes_dict, path, strategies):

@@ -66,14 +66,16 @@ def dump(path, data, **kwargs):
         pickle.dump(data, fp, **kwargs)
 
 
-def save_plot(plt, path, plot_title, img_name, use_grid=True, use_date=True):
+def save_plot(plt, path, img_name, plot_title=None, use_grid=True, use_date=True):
+    img_name = "{}.pdf".format(img_name)
     plt.grid(use_grid)
-    plt.title(plot_title)
+    if plot_title is not None:
+        plt.title(plot_title)
     if path:
         try:
             if use_date:
-                img_name = "{}-{}.png".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_name)
-            plt.savefig(os.path.join(path, img_name),  bbox_inches='tight')
+                img_name = "{}-{}.pdf".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_name)
+            plt.savefig(os.path.join(path, img_name), bbox_inches='tight', format='pdf')
         except ValueError:
             print("Something went wrong while saving image: ", img_name)
     else:
