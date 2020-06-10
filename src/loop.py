@@ -277,13 +277,14 @@ class LearningLoop:
 
         n_estimators = [5, 15, 30]
         num_features = len(self.experiment.feature_names)
-        max_depth = num_features if num_features < 5 else num_features/2
+        max_depth = num_features * 2 if num_features < 5 else num_features
         for n_estim in n_estimators:
-            max_depth += 2
             clf = SkopeRules(n_estimators=n_estim,
                              precision_min=0.4,
                              recall_min=0.01,
                              max_depth=max_depth,
+                             max_features=None,
+                             max_samples=1.0,
                              random_state=self.experiment.rng,
                              feature_names=column_names)
 
