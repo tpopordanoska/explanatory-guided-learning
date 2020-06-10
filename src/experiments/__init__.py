@@ -10,9 +10,6 @@ from .adult import *
 from . import breast_cancer
 from .breast_cancer import *
 
-from . import habermans_survival
-from .habermans_survival import *
-
 from . import german
 from .german import *
 

@@ -19,7 +19,6 @@ class Credit(Experiment):
 
         data = pd.read_excel("data/default of credit card clients.xls", header=1)
         data.drop('ID', axis=1, inplace=True)
-        global dataset
         dataset = Bunch(
             target=np.array(data['default payment next month']),
             data=(data.drop('default payment next month', axis=1))
@@ -35,16 +34,7 @@ class Credit(Experiment):
         #  PAY_0,2,3,4,5,6 (-2= no consumption, -1 = pay duly, 1 = payment delay for one month,
         #  2 = payment delay for two months ... 9 = payment delay for nine months and above
 
-        # Feature engineering
-        # Group EDUCATION categoris 4, 5 and 6 into a single group 4
-        data['EDUCATION'] = np.where(data['EDUCATION'] == 5, 4, data['EDUCATION'])
-        data['EDUCATION'] = np.where(data['EDUCATION'] == 6, 4, data['EDUCATION'])
-        data['EDUCATION'] = np.where(data['EDUCATION'] == 0, 4, data['EDUCATION'])
-
-        data['MARRIAGE'] = np.where(data['MARRIAGE'] == 0, 3, data['MARRIAGE'])
-
-        # Source: https://www.kaggle.com/selener/prediction-of-credit-card-default
-        # Most important features(RFE): ['PAY_0' 'BILL_AMT1' 'PAY_AMT2']
+        # Most important features (RFE)
         Ximp = X[['PAY_0', 'BILL_AMT1', 'PAY_AMT2']].astype('float')
 
         sampled_idx, _ = list(StratifiedShuffleSplit(n_splits=2, train_size=0.1, random_state=0).split(X, y))[0]

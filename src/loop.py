@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from src.clustering import run_kmedoids
 from src.plotting import *
-from src.xgl import Annotator
+from src.xgl_clustering import Annotator
 
 
 class LearningLoop:
