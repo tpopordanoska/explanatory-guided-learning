@@ -10,7 +10,7 @@ class Hepatitis(Experiment):
 
     def __init__(self, **kwargs):
         rng = kwargs.pop("rng")
-        model = RandomForrest(n_estimators=5, max_depth=3)
+        model = GradientBoosting()
 
         urls = ["http://archive.ics.uci.edu/ml/machine-learning-databases/hepatitis/hepatitis.data"]
         self.load_dataset('data', urls)
