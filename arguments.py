@@ -20,6 +20,13 @@ def get_drawing_args(folder):
     return parser.parse_args()
 
 
+def get_experiment_args():
+    parser = create_parser()
+    add_experiments_and_seed_args(parser)
+
+    return parser.parse_args()
+
+
 def create_parser():
     return argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -84,5 +91,3 @@ def add_plotting_option_arg(parser):
                         type=bool,
                         default=False,
                         help="Whether to plot additional graphs")
-
-
