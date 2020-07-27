@@ -2,18 +2,19 @@ import argparse
 
 from constants import *
 from src import *
+from arguments import get_drawing_args
 
 FORMATTING_METHODS = {
-    "al_density_weighted_1": "al-dw",
-    "al_least_confident": "al-us",
-    "rules_100.0": "xgl-rules",
+    "al_dw_1": "al-dw",
+    "al_lc": "al-us",
+    "xgl_rules_100.0": "xgl-rules",
     "sq_random": "gl",
-    "rules_10.0": "xgl-rules10",
-    "rules_1.0": "xgl-rules1",
-    "rules_hierarchy_100.0": "xgl-rules_hierarchy",
-    "rules_hierarchy_10.0": "rules_hierarchy",
-    "rules_hierarchy_1.0":  "xgl-rules_hierarchy",
-    "xgl_1.0": "xgl"
+    "xgl_rules_10.0": "xgl-rules10",
+    "xgl_rules_1.0": "xgl-rules1",
+    "xgl_rules_hierarchy_100.0": "xgl-rules_hierarchy",
+    "xgl_rules_hierarchy_10.0": "rules_hierarchy",
+    "xgl_rules_hierarchy_1.0":  "xgl-rules_hierarchy",
+    "xgl_clusters_1.0": "xgl",
 }
 
 SMALL_SIZE = 12
@@ -206,6 +207,19 @@ def plot_false_mistakes(false_mistakes_dict, path, strategies):
     save_plot(plt, path, "False mistakes", "False mistakes", use_date=False)
 
 
+def plot_check_rules(rules_f1_dict, plot_args, path):
+    n_folds = plot_args["n_folds"]
+    scores_rules_dict_mean, scores_rules_dict_std = get_mean_and_std(rules_f1_dict, n_folds)
+
+    for method, score in sorted(scores_rules_dict_mean.items()):
+        x = np.arange(len(score))
+        plt.plot(x, score, linewidth=2, markevery=20)
+        plt.fill_between(x, score - scores_rules_dict_std[method],
+                         score + scores_rules_dict_std[method], alpha=0.25, linewidth=0)
+
+        save_plot(plt, path, "Rules f1 wrt svm", "Rules f1 wrt svm", use_date=False)
+
+
 def running_mean(data, window_width):
     cumsum = np.cumsum(np.insert(data, 0, 0))
     return (cumsum[window_width:] - cumsum[:-window_width]) / float(window_width)
@@ -219,29 +233,8 @@ def moving_average(interval, window_size):
 if __name__ == '__main__':
     path_results = os.path.join(os.getcwd(), "results")
     result_folders = os.listdir(path_results)
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--folder',
-                        type=str,
-                        default=result_folders[-1],
-                        help="The name of the folder where the .pickle file is stored")
-    parser.add_argument('--strategies',
-                        nargs='+',
-                        choices=sorted(STRATEGIES),
-                        default=STRATEGIES)
-    parser.add_argument('--betas',
-                        nargs='+',
-                        default=[1],
-                        help="The beta values for density weighted AL")
-    parser.add_argument('--thetas_rules',
-                        nargs='+',
-                        default=[100.0],
-                        help="The theta values for softmax in XGL(rules)")
-    parser.add_argument('--thetas_xgl',
-                        nargs='+',
-                        default=[1.0],
-                        help="The theta values for softmax in XGL(clustering)")
 
-    args = parser.parse_args()
+    args = get_drawing_args(result_folders)
     strategies = create_strategies_list(args)
     path_folder = os.path.join(path_results, args.folder)
 
@@ -257,3 +250,4 @@ if __name__ == '__main__':
         plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"],
                                     experiment, strategies, path_folder)
         plot_false_mistakes(results["false_mistakes"], path_experiment, strategies)
+        plot_check_rules(results["check_rules_f1"], results['args'], path_experiment)

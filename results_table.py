@@ -5,7 +5,7 @@ import numpy as np
 
 from src.utils import load, get_mean_and_std
 
-RESULT_TABLE = ["al_density_weighted_1", "al_least_confident", "sq_random", "rules_100.0"]
+RESULT_TABLE = ["al_dw_1", "al_lc", "sq_random", "xgl_rules_100.0"]
 FORMATTING = {
     'adult': 'adult     ',
     'australian': 'australian',

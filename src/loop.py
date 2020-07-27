@@ -11,13 +11,13 @@ from src.xgl_clustering import Annotator
 
 class LearningLoop:
 
-    def __init__(self, experiment, no_clusters, max_iter, path, file, plots_off, use_weights, use_labels):
+    def __init__(self, experiment, no_clusters, max_iter, path, file, plots_on, use_weights, use_labels):
         self.experiment = experiment
         self.no_clusters = no_clusters
         self.max_iter = max_iter
         self.path = path
         self.file = file
-        self.plots_off = plots_off
+        self.plots_on = plots_on
         self.use_weights = use_weights
         self.use_labels = use_labels
         self.query_array = []
@@ -30,15 +30,16 @@ class LearningLoop:
         self.false_mistakes_count = [0]
         self.cos_distance_matrix = None
         self.initial_train_idx = None
+        self.check_rules_f1 = []
 
         self.METHODS = {
             "random": lambda  **kwargs: self.random_sampling(**kwargs),
-            "al_least_confident": lambda **kwargs: self.least_confident_idx(**kwargs),
-            "al_density_weighted": lambda **kwargs: self.density_weighted_idx(**kwargs),
+            "al_lc": lambda **kwargs: self.least_confident_idx(**kwargs),
+            "al_dw": lambda **kwargs: self.density_weighted_idx(**kwargs),
             "sq_random": lambda **kwargs: self.search_query_array(**kwargs),
-            "xgl": lambda **kwargs: self.xgl_clustering(**kwargs),
-            "rules": lambda **kwargs: self.xgl_rules(**kwargs),
-            "rules_hierarchy": lambda **kwargs: self.xgl_rules_hierarchy(**kwargs)
+            "xgl_clusters": lambda **kwargs: self.xgl_clustering(**kwargs),
+            "xgl_rules": lambda **kwargs: self.xgl_rules(**kwargs),
+            "xgl_rules_hierarchy": lambda **kwargs: self.xgl_rules_hierarchy(**kwargs),
         }
 
     ############## QUERY SELECTION STRATEGIES ##############
@@ -204,7 +205,7 @@ class LearningLoop:
                                                         use_labels=self.use_labels,
                                                         use_weights=self.use_weights,
                                                         path=self.path,
-                                                        plots_off=self.plots_off,
+                                                        plots_on=self.plots_on,
                                                         use_gower=use_gower)
         # Find the index of the query to be labeled
         wrong_points, query_idx = Annotator().select_from_worst_cluster(known_train_pd,
@@ -226,7 +227,7 @@ class LearningLoop:
                          use_labels=self.use_labels,
                          use_weights=self.use_weights,
                          path=self.path,
-                         plots_off=self.plots_off,
+                         plots_on=self.plots_on,
                          use_gower=use_gower)
 
         return query_idx
@@ -292,6 +293,9 @@ class LearningLoop:
             if self.compare_performance(clf, 0.15, **kwargs):
                 break
 
+        # Check rules faithfulness
+        self.check_rules(X_known_train_features, clf)
+
         sorted_rules = self.extract_rules(X_known_train_pd, clf)
         wrong_points_idx = []
         while len(wrong_points_idx) == 0:
@@ -339,14 +343,20 @@ class LearningLoop:
         return query_idx
 
     def xgl_rules_hierarchy(self, **kwargs):
-        """
-        Find index of the query to be labeled with the hierarchical XGL strategy using global surrogate model.
-
-        :param kwargs: Keyword arguments
-
-        :return: The index of the query (in X) to be labeled
-        """
         return self.xgl_rules(**kwargs, hierarchy=True)
+
+    def check_rules(self, points, clf):
+        if isinstance(self.experiment, Synthetic):
+            extra_points = self.sample_extra_between(points)
+            extra_pred_rules = clf.predict(extra_points)
+            extra_pred_blackbox = self.experiment.model.predict(extra_points)
+            score_rules = self.get_f1_score(extra_pred_blackbox, extra_pred_rules)
+            self.check_rules_f1.append(score_rules)
+
+    @staticmethod
+    def sample_extra_between(points):
+        xx, yy = create_meshgrid(points, 0.01)
+        return np.c_[xx.ravel(), yy.ravel()]
 
     ############## HELPER METHODS ##############
     def move(self, known_idx, train_idx, query_idx):
@@ -563,8 +573,9 @@ class LearningLoop:
                     score_blackbox = self.get_f1_score(points_pd.labels, points_pd.predictions)
                     # Each element in rules is a tuple (rule, class, f1_score wrt rules, f1_score wrt classifier)
                     rules.append((rule[0], idx, score, score_blackbox))
-            if not self.plots_off:
-                plot_rules(clf, X_known_train_features.to_numpy(), predictions == idx, idx, self.path)
+            if self.plots_on:
+                plot_rules(clf, X_known_train_features.to_numpy(), predictions == idx,
+                           idx, self.path, self.check_rules_f1[-1])
 
         self.file.write("Parameters for Skope Rules: {} \n".format(clf.get_params()))
         self.file.write("Number of extracted rules: {} \n". format(len(rules)))
@@ -596,12 +607,13 @@ class LearningLoop:
         self.scores_auc = []
         self.test_scores_auc = []
         self.query_scores = []
+        self.check_rules_f1 = []
         self.false_mistakes_count = [0]
         self.cos_distance_matrix = None
 
         # Get the theta value for XGL and rules or beta value for density based AL
         param = ""
-        if "xgl" in method or "rules" in method or "density" in method:
+        if "xgl" in method or "rules" in method or "dw" in method:
             param = float(method.split("_")[-1])
             method = "_".join(method.split("_")[:-1])
 
@@ -628,7 +640,7 @@ class LearningLoop:
             self.file.write("Selected point: {}\n".format(get_from_indexes(self.experiment.X, query_idx)))
             self.calculate_query_accuracy(known_idx, train_idx, query_idx)
 
-            if not self.plots_off:
+            if self.plots_on:
                 plot_decision_surface(self.experiment,
                                       known_idx,
                                       train_idx,
@@ -643,7 +655,7 @@ class LearningLoop:
             y_pred, y_pred_test = self.train_and_get_acc(known_idx, train_idx, test_idx)
 
         # Plot the decision surface
-        if not self.plots_off:
+        if self.plots_on:
             plot_decision_surface(self.experiment,
                                   known_idx,
                                   train_idx,

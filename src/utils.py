@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_val_score
+from constants import EXPERIMENTS
 
 from .experiments import *
 
@@ -83,24 +84,32 @@ def save_plot(plt, path, img_name, plot_title=None, use_grid=True, use_date=True
     plt.close()
 
 
+def initialize(experiment_name, path_results, seed):
+    print(experiment_name)
+    experiment = EXPERIMENTS[experiment_name](rng=np.random.RandomState(seed))
+    path = create_folder(path_results, experiment_name)
+    file = open(os.path.join(path, 'out.txt'), 'w')
+    return experiment, path, file
+
+
 def create_strategies_list(args):
     methods = []
-    if "al_density_weighted" in args.strategies:
-        args.strategies.remove("al_density_weighted")
+    if "al_dw" in args.strategies:
+        args.strategies.remove("al_dw")
         for beta in args.betas:
-            methods.append("al_density_weighted_{}".format(beta))
-    if "rules" in args.strategies:
-        args.strategies.remove("rules")
+            methods.append("al_dw_{}".format(beta))
+    if "xgl_rules" in args.strategies:
+        args.strategies.remove("xgl_rules")
         for theta_rules in args.thetas_rules:
-            methods.append("rules_{}".format(theta_rules))
-    if "rules_hierarchy" in args.strategies:
-        args.strategies.remove("rules_hierarchy")
+            methods.append("xgl_rules_{}".format(theta_rules))
+    if "xgl_rules_hierarchy" in args.strategies:
+        args.strategies.remove("xgl_rules_hierarchy")
         for theta_rules in args.thetas_rules:
-            methods.append("rules_hierarchy_{}".format(theta_rules))
-    if "xgl" in args.strategies:
-        args.strategies.remove("xgl")
+            methods.append("xgl_rules_hierarchy_{}".format(theta_rules))
+    if "xgl_clusters" in args.strategies:
+        args.strategies.remove("xgl_clusters")
         for theta_xgl in args.thetas_xgl:
-            methods.append("xgl_{}".format(theta_xgl))
+            methods.append("xgl_clusters_{}".format(theta_xgl))
     return methods + args.strategies
 
 

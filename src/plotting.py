@@ -151,6 +151,36 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
         save_plot(plt, path, title, title, False)
 
 
+def plot_kmedoids(points, kmedoids_instance, other_points, path):
+    # Plot the decision boundary
+    plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+    plt.xlim(points[:, 0].min() - 0.1, points[:, 0].max() + 0.1)
+    plt.ylim(points[:, 1].min() - 0.1, points[:, 1].max() + 0.1)
+    xx, yy = create_meshgrid(points)
+
+    # Obtain labels for each point in mesh.
+    Z = kmedoids_instance.predict((np.c_[xx.ravel(), yy.ravel()]))
+    Z = Z.reshape(xx.shape)
+
+    plt.imshow(Z, interpolation='nearest',
+               extent=(xx.min(), xx.max(), yy.min(), yy.max()),
+               cmap=plt.cm.Paired,
+               aspect='auto', origin='lower')
+
+    if other_points is not None:
+        plt.scatter(other_points.iloc[:, 0], other_points.iloc[:, 1], c=other_points.predictions, marker='o', s=30)
+    else:
+        plt.scatter(points[:, 0], points[:, 1], c=points[:, 2], marker='o', s=30)
+
+    # Plot the centroids
+    centroids_idx = kmedoids_instance.get_medoids()
+    centroids = points[centroids_idx]
+    plt.scatter(centroids[:, 0], centroids[:, 1],
+                marker='x', s=169, linewidths=3,
+                color='red', zorder=10)
+
+    save_plot(plt, path, "K-Medoids", "K-Medoids")
+
 def plot_rules_tsne(X, y, title, path):
 
     X_embedded = get_tsne_embedding(X)
@@ -170,7 +200,7 @@ def plot_rules_tsne(X, y, title, path):
     save_plot(plt, path, title, " rules", False)
 
 
-def plot_rules(clf, X, y, title="", path=None):
+def plot_rules(clf, X, y, title, path, rules_f1):
 
     if X.shape[1] > 2:
         plot_rules_tsne(X, y, title, path)
@@ -182,7 +212,7 @@ def plot_rules(clf, X, y, title="", path=None):
         plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
         plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
 
-        save_plot(plt, path, title, " rules", False)
+        save_plot(plt, path, " rules " + str(title), "F1 rules wrt svm: {}".format(rules_f1), False)
 
 
 def plot_points(X, y, title="", path=None):
