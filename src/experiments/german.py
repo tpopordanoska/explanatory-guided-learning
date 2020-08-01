@@ -6,7 +6,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
-from ..learners import *
+from src.models.learners import *
 
 
 class German(Experiment):

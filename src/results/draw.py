@@ -1,8 +1,9 @@
-import argparse
+import matplotlib.pyplot as plt
 
-from constants import *
-from src import *
-from arguments import get_drawing_args
+from src.utils.arguments import get_drawing_args
+from src.utils.common import *
+from src.utils.constants import *
+from src.utils.plotting import save_plot
 
 FORMATTING_METHODS = {
     "al_dw_1": "al-dw",
@@ -76,9 +77,10 @@ def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", s
     for key, score in sorted(scores.items()):
         if key not in strategies:
             continue
+        param, method = extract_param_from_name(key)
         x = np.arange(len(score))
         plt.plot(x[:n], score[:n],
-                 label=LABELS_LOOKUP.get(key, key),
+                 label=format_label(method, param),
                  color=COLORS[i] if i < len(COLORS) else "black",
                  marker=MARKERS[i] if i < len(MARKERS) else ".",
                  linewidth=2,
@@ -171,9 +173,10 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
         difference_std = np.std(differences_smallest_len, axis=0) / np.sqrt(n_folds)
 
         x = np.arange(len(difference_mean))
+        param, key = extract_param_from_name(method)
         plt.plot(x, difference_mean,
                  color=COLORS[i] if i < len(COLORS) else "black",
-                 label=LABELS_LOOKUP.get(method, method),
+                 label=format_label(key, param),
                  marker=MARKERS[i] if i < len(MARKERS) else ".",
                  linewidth=2,
                  markevery=20)
@@ -198,7 +201,8 @@ def plot_false_mistakes(false_mistakes_dict, path, strategies):
         false_mistakes_smallest_len = [s[:smallest_len] for s in false_mistakes]
         false_mistakes_mean = np.mean(false_mistakes_smallest_len, axis=0)
         x = np.arange(len(false_mistakes_mean))
-        plt.plot(x, false_mistakes_mean, linewidth=2, markevery=20, label=LABELS_LOOKUP.get(strategy, strategy))
+        param, method = extract_param_from_name(strategy)
+        plt.plot(x, false_mistakes_mean, linewidth=2, markevery=20, label=format_label(method, param))
 
         plt.xlabel('Number of obtained labels')
         plt.ylabel("Number of false mistakes")
@@ -228,6 +232,25 @@ def running_mean(data, window_width):
 def moving_average(interval, window_size):
     window = np.ones(int(window_size))/float(window_size)
     return np.convolve(interval, window, 'same')
+
+
+def format_label(method, param):
+    if method == 'random':
+        return "Random"
+    elif method == 'al_lc':
+        return "AL (unc.)"
+    elif method == 'al_dw':
+        return "AL (repr.)"
+    elif method == 'sq_random':
+        return "GL"
+    elif method == 'xgl_clusters':
+        return "XGL(clustering) (θ={})".format(param)
+    elif method == 'xgl_rules_hierarchy':
+        return "XGL (hier.) (θ={})".format(param)
+    elif method == 'xgl_rules':
+        return "XGL (θ={})".format(param)
+    else:
+        return method
 
 
 if __name__ == '__main__':

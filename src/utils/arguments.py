@@ -1,5 +1,5 @@
 import argparse
-from constants import EXPERIMENTS, STRATEGIES
+from src.utils.constants import EXPERIMENTS, STRATEGIES
 
 
 def get_main_args():

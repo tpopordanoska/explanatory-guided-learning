@@ -5,7 +5,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
-from ..learners import *
+from src.models.learners import *
 
 
 class Credit(Experiment):

@@ -2,7 +2,7 @@ from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
-from ..learners import *
+from src.models.learners import *
 
 
 class BreastCancer(Experiment):

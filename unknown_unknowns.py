@@ -1,24 +1,26 @@
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold
 
-from arguments import get_experiment_args
-from src.normalizer import *
-from src.utils import *
+from src.utils.arguments import get_experiment_args
+from src.utils.common import create_folders, initialize_experiment
+from src.utils.normalizer import Normalizer
+from src.utils.plotting import save_plot
 
 
 def main(args):
     path_results = create_folders()
-
     for experiment_name in args.experiments:
-        experiment, exp_path, file = initialize(experiment_name, path_results, args.seed)
+        experiment = initialize_experiment(experiment_name, args.seed, path_results,)
 
         kfold = StratifiedKFold(n_splits=3, shuffle=True, random_state=experiment.rng)
         for k, (train_idx, test_idx) in enumerate(kfold.split(experiment.X, experiment.y)):
-            file.write('seed {}, fold {}, #train {}, #test {} \n'.format(args.seed, k, len(train_idx), len(test_idx)))
             X_train_norm, X_test_norm = get_normalized_features(experiment, train_idx, test_idx)
             train(experiment.model, X_train_norm, experiment.y[train_idx])
             y_pred, probs_test = get_predictions_and_probs(experiment.model, X_test_norm)
             entropy = calculate_entropy_of_mistakes(experiment.y[test_idx], y_pred, probs_test)
-            plot_and_save_histogram(entropy, exp_path)
+            plot_and_save_histogram(entropy, experiment.path)
 
 
 def get_normalized_features(experiment, train_idx, test_idx):
@@ -53,6 +55,11 @@ def plot_and_save_histogram(entropy, path):
 
     save_plot(plt, path, "Entropy")
 
+
+def get_from_indexes(X, indexes):
+    if isinstance(X, pd.DataFrame):
+        return X.iloc[indexes]
+    return X[indexes]
 
 if __name__ == '__main__':
     exp_args = get_experiment_args()

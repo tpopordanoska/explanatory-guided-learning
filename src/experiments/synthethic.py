@@ -3,7 +3,7 @@ from scipy.spatial import distance
 from sklearn.datasets.samples_generator import make_blobs
 
 from .experiment import Experiment
-from ..learners import *
+from src.models.learners import *
 
 
 class Synthetic(Experiment):

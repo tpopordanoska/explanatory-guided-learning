@@ -22,6 +22,8 @@ class Experiment:
         self.rng = check_random_state(rng)
         self.normalizer = normalizer
         self.use_gower = use_gower
+        self.path = None
+        self.file = None
 
     @staticmethod
     def load_dataset(path, urls):
@@ -43,7 +45,7 @@ class Experiment:
 
     def split(self, n_splits=10, prop_known=0.5, split_seed=0):
         """
-        Split the data into known, train and test set.
+        Split the data into initially labeled (known), pool of unlabeled to choose from (train) and unlabeled for test.
 
         :param n_splits: How many splits to generate
         :param prop_known: The proportion of the known points

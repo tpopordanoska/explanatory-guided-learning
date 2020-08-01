@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
 from .experiment import Experiment
-from ..learners import *
+from src.models.learners import *
 
 
 class Heart(Experiment):

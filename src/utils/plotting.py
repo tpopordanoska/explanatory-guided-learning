@@ -1,11 +1,15 @@
+import os
+from datetime import datetime
+
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 from matplotlib.pyplot import figure
 from sklearn.manifold import TSNE
 from sklearn.neighbors import KNeighborsClassifier
 
-from .normalizer import *
-from .utils import *
+from src.experiments import Adult
+from src.utils.normalizer import Normalizer
 
 sns.set()
 sns.set_context("paper")
@@ -27,82 +31,23 @@ def create_meshgrid(points, h=0.1):
     return xx, yy
 
 
-def plot_decision_surface_tsne(experiment, known_idx, train_idx, query_idx, y_pred, title, path):
-    """
-
-    Plots the decision surface of the model on TSNE-embedded data.
-
-    :param experiment: The experiment
-    :param known_idx: The indexes of the known points
-    :param train_idx: The indexes of the training points
-    :param query_idx: The index of chosen least confident example
-    :param y_pred: The predictions of the model
-    :param title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
-
-    """
-    X_known, y_known = get_from_indexes(experiment.X, known_idx), experiment.y[known_idx]
-    X_train, y_train = get_from_indexes(experiment.X, train_idx), experiment.y[train_idx]
-    X_known_norm, X_train_norm = Normalizer(experiment.normalizer).normalize_known_train(X_known, X_train)
-    X_known_train_norm = np.concatenate((X_known_norm, X_train_norm), axis=0)
-
-    X_initial = Normalizer(experiment.normalizer).normalize(experiment.X)
-    X_embedded = get_tsne_embedding(X_initial)
-    X_known_embedded = X_embedded[known_idx]
-    X_train_embedded = X_embedded[train_idx]
-    X_known_train_embedded = np.concatenate((X_known_embedded, X_train_embedded), axis=0)
-
-    y_predicted = experiment.model.predict(X_known_train_norm)
-
-    h = 10
-    x_min, x_max = X_known_train_embedded[:, 0].min() - 1, X_known_train_embedded[:, 0].max() + 1
-    y_min, y_max = X_known_train_embedded[:, 1].min() - 1, X_known_train_embedded[:, 1].max() + 1
-    xx, yy = np.meshgrid(np.linspace(x_min, x_max, h), np.linspace(y_min, y_max, h))
-    # approximate Voronoi tesselation on resolution x resolution grid using 1-NN
-    background_model = KNeighborsClassifier(n_neighbors=1).fit(X_known_train_embedded, y_predicted)
-    voronoiBackground = background_model.predict(np.c_[xx.ravel(), yy.ravel()])
-    voronoiBackground = voronoiBackground.reshape((h, h))
-
-    plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-    plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
-
-    if y_pred is not None:
-        plt.scatter(X_train_embedded[:, 0], X_train_embedded[:, 1], c=y_pred, cmap=plt.cm.RdBu_r, s=45)
-    else:
-        plt.scatter(X_train_embedded[:, 0], X_train_embedded[:, 1], c=y_train, cmap=plt.cm.RdBu_r, s=45)
-        plt.scatter(X_known_embedded[:, 0], X_known_embedded[:, 1], c=y_known, cmap=plt.cm.RdBu_r, s=45,
-                    edgecolors="yellow", linewidths=2)
-
-    if query_idx is not None:
-        least_conf = get_from_indexes(experiment.X, query_idx)
-        if isinstance(experiment, Adult):
-            X_train = X_train.to_numpy()
-        idx_array = np.where((X_train[:, 0] == least_conf[0]) & (X_train[:, 1] == least_conf[1]))[0]
-        if len(idx_array):
-            idx_in_train = idx_array[0]
-            least_conf_norm = get_from_indexes(X_train_embedded, idx_in_train)
-            plt.scatter(least_conf_norm[0], least_conf_norm[1], marker='x', s=400, linewidths=5, color='yellow')
-
-    save_plot(plt, path, title, title, False)
-
-
-def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pred=None, soft=True, title="",
-                          path=None):
+def plot_decision_surface(running_instance, query_idx=None, y_pred=None, soft=True, title=""):
     """
     Plots the decision surface of the model together with the data points.
 
-    :param experiment: The experiment
-    :param known_idx: The indexes of the known points
-    :param train_idx: The indexes of the training points
+    :param running_instance: An object containing the information about the current experiment and arguments
     :param query_idx: The index of chosen least confident example
     :param y_pred: The predictions of the model
     :param soft: Whether to plot  kernel-like boundary
     :param title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
 
     """
+    experiment = running_instance.experiment
+    known_idx = running_instance.known_idx
+    train_idx = running_instance.train_idx
+
     if experiment.X.shape[1] > 2:
-        plot_decision_surface_tsne(experiment, known_idx, train_idx, query_idx, y_pred, title, path)
+        plot_decision_surface_tsne(running_instance, query_idx, y_pred, title)
     else:
         X_known, y_known = experiment.X[known_idx], experiment.y[known_idx]
         X_train, y_train = experiment.X[train_idx], experiment.y[train_idx]
@@ -148,7 +93,54 @@ def plot_decision_surface(experiment, known_idx, train_idx, query_idx=None, y_pr
         plt.xlim(X_known_train_norm[:, 0].min() - 0.1, X_known_train_norm[:, 0].max() + 0.1)
         plt.ylim(X_known_train_norm[:, 1].min() - 0.1, X_known_train_norm[:, 1].max() + 0.1)
 
-        save_plot(plt, path, title, title, False)
+        save_plot(plt, experiment.path, title, title, False)
+
+
+def plot_decision_surface_tsne(running_instance, query_idx, y_pred, title):
+    exp = running_instance.experiment
+    X_known, y_known, X_train, y_train, _, _ = running_instance.get_all_data()
+    X_known_norm, X_train_norm = Normalizer(exp.normalizer).normalize_known_train(X_known, X_train)
+
+    X_known_train_norm = np.concatenate((X_known_norm, X_train_norm), axis=0)
+
+    X_initial = Normalizer(exp.normalizer).normalize(exp.X)
+    X_embedded = get_tsne_embedding(X_initial)
+    X_known_embedded = X_embedded[running_instance.known_idx]
+    X_train_embedded = X_embedded[running_instance.train_idx]
+    X_known_train_embedded = np.concatenate((X_known_embedded, X_train_embedded), axis=0)
+
+    y_predicted = running_instance.predict(X_known_train_norm)
+
+    h = 10
+    x_min, x_max = X_known_train_embedded[:, 0].min() - 1, X_known_train_embedded[:, 0].max() + 1
+    y_min, y_max = X_known_train_embedded[:, 1].min() - 1, X_known_train_embedded[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, h), np.linspace(y_min, y_max, h))
+    # approximate Voronoi tesselation on resolution x resolution grid using 1-NN
+    background_model = KNeighborsClassifier(n_neighbors=1).fit(X_known_train_embedded, y_predicted)
+    voronoiBackground = background_model.predict(np.c_[xx.ravel(), yy.ravel()])
+    voronoiBackground = voronoiBackground.reshape((h, h))
+
+    plt.figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+    plt.contourf(xx, yy, voronoiBackground, cmap=plt.cm.RdBu_r, alpha=0.8)
+
+    if y_pred is not None:
+        plt.scatter(X_train_embedded[:, 0], X_train_embedded[:, 1], c=y_pred, cmap=plt.cm.RdBu_r, s=45)
+    else:
+        plt.scatter(X_train_embedded[:, 0], X_train_embedded[:, 1], c=y_train, cmap=plt.cm.RdBu_r, s=45)
+        plt.scatter(X_known_embedded[:, 0], X_known_embedded[:, 1], c=y_known, cmap=plt.cm.RdBu_r, s=45,
+                    edgecolors="yellow", linewidths=2)
+
+    if query_idx is not None:
+        least_conf = running_instance.get_from_indexes(exp.X, query_idx)
+        if isinstance(exp, Adult):
+            X_train = X_train.to_numpy()
+        idx_array = np.where((X_train[:, 0] == least_conf[0]) & (X_train[:, 1] == least_conf[1]))[0]
+        if len(idx_array):
+            idx_in_train = idx_array[0]
+            least_conf_norm = running_instance.get_from_indexes(X_train_embedded, idx_in_train)
+            plt.scatter(least_conf_norm[0], least_conf_norm[1], marker='x', s=400, linewidths=5, color='yellow')
+
+    save_plot(plt, exp.path, title, title, False)
 
 
 def plot_kmedoids(points, kmedoids_instance, other_points, path):
@@ -181,6 +173,22 @@ def plot_kmedoids(points, kmedoids_instance, other_points, path):
 
     save_plot(plt, path, "K-Medoids", "K-Medoids")
 
+
+def plot_rules(clf, X, y, title, path, rules_f1):
+
+    if X.shape[1] > 2:
+        plot_rules_tsne(X, y, title, path)
+    else:
+        figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
+        xx, yy = create_meshgrid(X, 0.005)
+        Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z.reshape(xx.shape)
+        plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
+        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+
+        save_plot(plt, path, " rules " + str(title), "F1 rules wrt svm: {}".format(rules_f1), False)
+
+
 def plot_rules_tsne(X, y, title, path):
 
     X_embedded = get_tsne_embedding(X)
@@ -200,31 +208,18 @@ def plot_rules_tsne(X, y, title, path):
     save_plot(plt, path, title, " rules", False)
 
 
-def plot_rules(clf, X, y, title, path, rules_f1):
+def plot_initial_points(known_idx, test_idx, experiment):
 
-    if X.shape[1] > 2:
-        plot_rules_tsne(X, y, title, path)
-    else:
-        figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
-        xx, yy = create_meshgrid(X, 0.005)
-        Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
-        Z = Z.reshape(xx.shape)
-        plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
-        plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)
+    X_initial = Normalizer(experiment.normalizer).normalize(experiment.X)
+    if experiment.X.shape[1] > 2:
+        X_initial = get_tsne_embedding(X_initial)
 
-        save_plot(plt, path, " rules " + str(title), "F1 rules wrt svm: {}".format(rules_f1), False)
+    plot_points(X_initial, experiment.y, "Initial points", experiment.path)
+    plot_points(X_initial[known_idx], experiment.y[known_idx], "Known points", experiment.path)
+    plot_points(X_initial[test_idx], experiment.y[test_idx], "Test points", experiment.path)
 
 
 def plot_points(X, y, title="", path=None):
-    """
-    Plot the given points with their corresponding labels.
-
-    :param X: Contains the coordinates of the points to be plotted
-    :param y: The corresponding labels
-    :param title: The title of the plot
-    :param path: The path of the folder where the plot will be saved
-
-    """
     figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
     plt.scatter(X[:, 0], X[:, 1], c=y, marker='o', s=45, cmap=plt.cm.coolwarm)
 
@@ -233,3 +228,20 @@ def plot_points(X, y, title="", path=None):
 
 def get_tsne_embedding(X):
     return TSNE(n_components=2, n_iter=300, random_state=0).fit_transform(X)
+
+
+def save_plot(plt, path, img_name, plot_title=None, use_grid=True, use_date=True):
+    img_name = "{}.pdf".format(img_name)
+    plt.grid(use_grid)
+    if plot_title is not None:
+        plt.title(plot_title)
+    if path:
+        try:
+            if use_date:
+                img_name = "{}-{}.pdf".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_name)
+            plt.savefig(os.path.join(path, img_name), bbox_inches='tight', format='pdf')
+        except ValueError:
+            print("Something went wrong while saving image: ", img_name)
+    else:
+        plt.show()
+    plt.close()

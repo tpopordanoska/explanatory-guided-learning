@@ -4,9 +4,9 @@ from datetime import datetime
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_val_score
-from constants import EXPERIMENTS
+from src.utils.constants import EXPERIMENTS
 
-from .experiments import *
+from src.experiments import *
 
 
 def create_folders():
@@ -67,29 +67,13 @@ def dump(path, data, **kwargs):
         pickle.dump(data, fp, **kwargs)
 
 
-def save_plot(plt, path, img_name, plot_title=None, use_grid=True, use_date=True):
-    img_name = "{}.pdf".format(img_name)
-    plt.grid(use_grid)
-    if plot_title is not None:
-        plt.title(plot_title)
-    if path:
-        try:
-            if use_date:
-                img_name = "{}-{}.pdf".format(datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'), img_name)
-            plt.savefig(os.path.join(path, img_name), bbox_inches='tight', format='pdf')
-        except ValueError:
-            print("Something went wrong while saving image: ", img_name)
-    else:
-        plt.show()
-    plt.close()
-
-
-def initialize(experiment_name, path_results, seed):
+def initialize_experiment(experiment_name, seed, path_results):
     print(experiment_name)
     experiment = EXPERIMENTS[experiment_name](rng=np.random.RandomState(seed))
-    path = create_folder(path_results, experiment_name)
-    file = open(os.path.join(path, 'out.txt'), 'w')
-    return experiment, path, file
+    experiment.path = create_folder(path_results, experiment_name)
+    experiment.file = open(os.path.join(experiment.path, 'out.txt'), 'w')
+
+    return experiment
 
 
 def create_strategies_list(args):
@@ -113,11 +97,15 @@ def create_strategies_list(args):
     return methods + args.strategies
 
 
-def write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
-                  method, n_clusters, n_folds, use_weights, use_labels):
+def write_to_file(loop, args, k, experiment, method, exec_time):
+    file = experiment.file
+    known_idx = loop.initial_known_idx
+    train_idx = loop.initial_train_idx
+    test_idx = loop.initial_test_idx
+
     # Write parameters to file
     file.write('seed, fold {} : #known {}, #train {}, #test {} \n'
-               .format(seed, k + 1, len(known_idx), len(train_idx), len(test_idx)))
+               .format(args.seed, k + 1, len(known_idx), len(train_idx), len(test_idx)))
     _, counts_known = np.unique(experiment.y[known_idx], return_counts=True)
     _, counts_train = np.unique(experiment.y[train_idx], return_counts=True)
     _, counts_test = np.unique(experiment.y[test_idx], return_counts=True)
@@ -128,8 +116,8 @@ def write_to_file(file, known_idx, train_idx, test_idx, seed, k, experiment,
     print(method)
     file.write("Method: {} \n".format(method))
     file.write("Model: {}\n".format(experiment.model.sklearn_model))
-    file.write("{} clusters, {} folds, {} seed\n".format(n_clusters, n_folds, seed))
-    file.write("use_weights={}, use_labels={}\n".format(use_weights, use_labels))
+    file.write("{} clusters, {} folds, {} seed\n".format(args.n_clusters, args.n_folds, args.seed))
+    file.write("Execution time: {} \n".format(exec_time))
 
 
 def get_mean_and_std(scores_dict, n_folds):
@@ -147,34 +135,28 @@ def get_mean_and_std(scores_dict, n_folds):
     return scores_dict_mean, scores_dict_std
 
 
-def get_passive_score(experiment, file, n_splits, split_seed, scorer):
-    pipeline = Pipeline([('transformer', experiment.normalizer), ('estimator', experiment.model.sklearn_model)])
-    kfold = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=split_seed)
-    scores = cross_val_score(pipeline, experiment.X, experiment.y, cv=kfold, scoring=scorer)
+def get_passive_score(running_instance, scorer):
+    exp = running_instance.experiment
+    pipeline = Pipeline([('transformer', exp.normalizer), ('estimator', exp.model.sklearn_model)])
+    kfold = StratifiedKFold(n_splits=running_instance.args.n_folds, shuffle=True, random_state=exp.rng)
+    scores = cross_val_score(pipeline, exp.X, exp.y, cv=kfold, scoring=scorer)
     scores_mean_std = {
         "mean": np.mean(scores, axis=0),
-        "std": np.std(scores, axis=0) / np.sqrt(n_splits)
+        "std": np.std(scores, axis=0) / np.sqrt(running_instance.args.n_folds)
     }
-    file.write("(sklearn) Passive {} for {}: {:.2f} (+/- {:.2f}) ".format(scorer, experiment.name, scores.mean(),
-                                                                          scores.std() * 2))
-    file.write("Passive {} for {}: {:.2f} (+/- {:.2f}) ".format(scorer, experiment.name, scores_mean_std["mean"],
-                                                                scores_mean_std["std"]))
+    exp.file.write("(sklearn) Passive {} for {}: {:.2f} (+/- {:.2f}) ".format(
+        scorer, exp.name, scores.mean(), scores.std() * 2))
+    exp.file.write("Passive {} for {}: {:.2f} (+/- {:.2f}) ".format(
+        scorer, exp.name, scores_mean_std["mean"], scores_mean_std["std"]))
+
     return scores_mean_std
 
 
-def get_from_indexes(X, indexes):
-    if isinstance(X, pd.DataFrame):
-        return X.iloc[indexes]
-    return X[indexes]
+def extract_param_from_name(method):
+    # Get the theta value for XGL and rules or beta value for density based AL
+    param = ""
+    if "xgl" in method or "rules" in method or "dw" in method:
+        param = float(method.split("_")[-1])
+        method = "_".join(method.split("_")[:-1])
+    return param, method
 
-
-def select_random(data, rng):
-    """
-    Get a random element from the given data.
-
-    :param data: The data to find a random element from
-    :param rng: RandomState object
-
-    :return: A random element from the data
-    """
-    return rng.choice(data)

@@ -2,7 +2,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from .experiment import Experiment
-from ..learners import *
+from src.models.learners import *
 
 
 class Australian(Experiment):
