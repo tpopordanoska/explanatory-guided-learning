@@ -120,7 +120,7 @@ class XglRules(RunningInstance):
         pred_rules = clf.predict(points)
         pred_blackbox = self.predict(points)
         score_rules_wrt_bb = self.get_f1_score(pred_blackbox, pred_rules)
-        self.results.check_rules_f1.append(score_rules_wrt_bb)
+        self.results.rules_wrt_blackbox_f1.append(score_rules_wrt_bb)
 
     def find_clf_params(self, X_kte_features, kte_predictions, column_names):
         clf = SkopeRules()
@@ -165,7 +165,7 @@ class XglRules(RunningInstance):
                     rules.append((rule[0], idx, score, score_blackbox))
             if self.args.plots_on:
                 plot_rules(clf, X_known_train_features.to_numpy(), predictions == idx,
-                           idx, self.experiment.path, self.results.check_rules_f1[-1])
+                           idx, self.experiment.path, self.results.rules_wrt_blackbox_f1[-1])
 
         self.experiment.file.write("Parameters for Skope Rules: {} \n".format(clf.get_params()))
         self.experiment.file.write("Number of extracted rules: {} \n". format(len(rules)))
@@ -197,7 +197,7 @@ class XglRules(RunningInstance):
 
         if self.args.plots_on:
             plot_rules(tree, X_known_train_features.to_numpy(), predictions, "",
-                       self.experiment.path, self.results.rules_wrt_svm_f1[-1])
+                       self.experiment.path, self.results.rules_wrt_blackbox_f1[-1])
 
         # Sort by the f1_score wrt the rules
         final_rules.sort(key=lambda x: x[2], reverse=True)

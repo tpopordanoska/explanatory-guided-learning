@@ -211,17 +211,18 @@ def plot_false_mistakes(false_mistakes_dict, path, strategies):
     save_plot(plt, path, "False mistakes", "False mistakes", use_date=False)
 
 
-def plot_check_rules(rules_f1_dict, plot_args, path):
+def plot_rules_wrt_blackbox_f1(rules_f1_dict, plot_args, path):
     n_folds = plot_args["n_folds"]
     scores_rules_dict_mean, scores_rules_dict_std = get_mean_and_std(rules_f1_dict, n_folds)
 
     for method, score in sorted(scores_rules_dict_mean.items()):
         x = np.arange(len(score))
-        plt.plot(x, score, linewidth=2, markevery=20)
+        plt.plot(x, score, linewidth=2, markevery=20, label=method)
         plt.fill_between(x, score - scores_rules_dict_std[method],
                          score + scores_rules_dict_std[method], alpha=0.25, linewidth=0)
+        plt.legend()
 
-        save_plot(plt, path, "Rules f1 wrt svm", "Rules f1 wrt svm", use_date=False)
+    save_plot(plt, path, "Rules f1 wrt blackbox", "Rules f1 wrt blackbox", use_date=False)
 
 
 def running_mean(data, window_width):
@@ -273,4 +274,5 @@ if __name__ == '__main__':
         plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"],
                                     experiment, strategies, path_folder)
         plot_false_mistakes(results["false_mistakes"], path_experiment, strategies)
-        plot_check_rules(results["check_rules_f1"], results['args'], path_experiment)
+        plot_rules_wrt_blackbox_f1(results["rules_wrt_blackbox_f1"], results['args'], path_experiment)
+

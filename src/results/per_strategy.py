@@ -6,5 +6,5 @@ class ResultsPerStrategy:
         self.scores_auc = []
         self.test_scores_auc = []
         self.query_scores = []
-        self.check_rules_f1 = []
+        self.rules_wrt_blackbox_f1 = []
         self.false_mistakes_count = [0]
