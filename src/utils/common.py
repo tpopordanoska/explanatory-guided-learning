@@ -90,6 +90,10 @@ def create_strategies_list(args):
         args.strategies.remove("xgl_rules_hierarchy")
         for theta_rules in args.thetas_rules:
             methods.append("xgl_rules_hierarchy_{}".format(theta_rules))
+    if "xgl_rules_simple_tree" in args.strategies:
+        args.strategies.remove("xgl_rules_simple_tree")
+        for theta_rules in args.thetas_rules:
+            methods.append("xgl_rules_simple_tree_{}".format(theta_rules))
     if "xgl_clusters" in args.strategies:
         args.strategies.remove("xgl_clusters")
         for theta_xgl in args.thetas_xgl:

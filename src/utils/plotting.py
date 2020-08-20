@@ -181,7 +181,10 @@ def plot_rules(clf, X, y, title, path, rules_f1):
     else:
         figure(num=None, figsize=(10, 8), facecolor='w', edgecolor='k')
         xx, yy = create_meshgrid(X, 0.005)
-        Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+        if hasattr(clf, "decision_function"):
+            Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
+        else:
+            Z = clf.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1]
         Z = Z.reshape(xx.shape)
         plt.contourf(xx, yy, Z, cmap=plt.cm.RdBu_r, alpha=0.8)
         plt.scatter(X[:, 0], X[:, 1], c=y, cmap=plt.cm.RdBu_r, s=45)

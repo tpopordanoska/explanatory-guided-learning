@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from skrules import SkopeRules
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import _tree
 
 from src.experiments import Synthetic
 from src.running_instance import RunningInstance
@@ -10,8 +12,9 @@ from src.utils.plotting import create_meshgrid, plot_rules
 
 class XglRules(RunningInstance):
 
-    def __init__(self, hierarchy=False, **kwargs):
+    def __init__(self, hierarchy=False, simple_tree=False, **kwargs):
         self.hierarchy = hierarchy
+        self.simple_tree = simple_tree
         super().__init__(**kwargs)
 
     def query(self):
@@ -25,11 +28,16 @@ class XglRules(RunningInstance):
         if isinstance(self.experiment, Synthetic):
             X_kte_features, kte_predictions = self.prepare_and_generate_extra_data(X_known_train_pd, column_names)
 
-        clf = self.find_clf_params(X_kte_features, kte_predictions, column_names)
-        if isinstance(self.experiment, Synthetic):
-            self.check_rules(X_known_train, clf)
+        if self.simple_tree:
+            clf = DecisionTreeClassifier()
+            clf.fit(self.get_feature_columns(X_known_train_pd), X_known_train_pd['predictions'])
+            self.save_rules_acc(X_known_train, clf)
+            sorted_rules = self.extract_rules_from_simple_tree(X_known_train_pd, clf, column_names)
+        else:
+            clf = self.find_clf_params(X_kte_features, kte_predictions, column_names)
+            self.save_rules_acc(X_known_train, clf)
+            sorted_rules = self.extract_rules(X_known_train_pd, clf)
 
-        sorted_rules = self.extract_rules(X_known_train_pd, clf)
         wrong_points_idx = []
         while len(wrong_points_idx) == 0:
             if len(sorted_rules) == 0:
@@ -100,6 +108,20 @@ class XglRules(RunningInstance):
 
         return X_kte_features, kte_predictions
 
+    def save_rules_acc(self, points, clf):
+        """
+        Save the faithfulness (f1 of rules w.r.t. blackbox) of the rules for the Synthetic experiment.
+
+        :param points: The set of known and train points
+        :param clf: SkopeRules classifier
+        """
+        if isinstance(self.experiment, Synthetic):
+            points = self.sample_extra_between(points)
+        pred_rules = clf.predict(points)
+        pred_blackbox = self.predict(points)
+        score_rules_wrt_bb = self.get_f1_score(pred_blackbox, pred_rules)
+        self.results.check_rules_f1.append(score_rules_wrt_bb)
+
     def find_clf_params(self, X_kte_features, kte_predictions, column_names):
         clf = SkopeRules()
         n_estimators = [5, 15, 30]
@@ -120,19 +142,6 @@ class XglRules(RunningInstance):
                 break
 
         return clf
-
-    def check_rules(self, points, clf):
-        """
-        Check the faithfulness of the rules for the Synthetic experiment.
-
-        :param points: The set of known and train points
-        :param clf: SkopeRules classifier
-        """
-        extra_points = self.sample_extra_between(points)
-        extra_pred_rules = clf.predict(extra_points)
-        extra_pred_blackbox = self.predict(extra_points)
-        score_rules = self.get_f1_score(extra_pred_blackbox, extra_pred_rules)
-        self.results.check_rules_f1.append(score_rules)
 
     def extract_rules(self, data, clf):
         X_known_train_features = self.get_feature_columns(data)
@@ -165,6 +174,35 @@ class XglRules(RunningInstance):
         rules.sort(key=lambda x: x[2], reverse=True)
 
         return rules
+
+    def extract_rules_from_simple_tree(self, data, tree, feature_names):
+        X_known_train_features = self.get_feature_columns(data)
+        predictions = data['predictions']
+        X_train_pd = data[data["is_train"]]
+
+        final_rules = []
+        tree.fit(X_known_train_features, predictions)
+        rules_with_labels_from_tree = self.tree_to_rules(tree, feature_names)
+        rules_tuples = [(r, l, self.eval_rule_perf(r, X_known_train_features, predictions)) for r, l in
+                        set(rules_with_labels_from_tree)]
+        for rule in rules_tuples:
+            points_pd = self.get_points_satisfying_rule(X_train_pd, rule[0])
+            # if there are no points in X_train that satisfy the rule, skip it
+            if len(points_pd) > 0:
+                points_predictions = np.ones(len(points_pd)) * rule[1]
+                score = self.get_f1_score(points_pd.labels, points_predictions)
+                score_blackbox = self.get_f1_score(points_pd.labels, points_pd.predictions)
+                # Each element in rules is a tuple (rule, class, f1_score wrt rules, f1_score wrt classifier)
+                final_rules.append((rule[0], rule[1], score, score_blackbox))
+
+        if self.args.plots_on:
+            plot_rules(tree, X_known_train_features.to_numpy(), predictions, "",
+                       self.experiment.path, self.results.rules_wrt_svm_f1[-1])
+
+        # Sort by the f1_score wrt the rules
+        final_rules.sort(key=lambda x: x[2], reverse=True)
+
+        return final_rules
 
     def select_and_remove_rule(self, rules, theta):
         logits = [1-x[2] for x in rules]
@@ -259,3 +297,50 @@ class XglRules(RunningInstance):
     def sample_extra_between(points):
         xx, yy = create_meshgrid(points, 0.01)
         return np.c_[xx.ravel(), yy.ravel()]
+
+    @staticmethod
+    # from https://github.com/scikit-learn-contrib/skope-rules/tree/master/skrules
+    def eval_rule_perf(rule, X, y):
+        detected_index = list(X.query(rule).index)
+        if len(detected_index) <= 1:
+            return (0, 0)
+        y_detected = y[detected_index]
+        true_pos = y_detected[y_detected > 0].sum()
+        if true_pos == 0:
+            return (0, 0)
+        pos = y[y > 0].sum()
+        return y_detected.mean(), float(true_pos) / pos
+
+    @staticmethod
+    # from https://github.com/scikit-learn-contrib/skope-rules/tree/master/skrules
+    def tree_to_rules(tree, feature_names):
+        """
+        Return a list of rules from a tree
+        """
+        tree_ = tree.tree_
+        feature_name = [
+            feature_names[i] if i != _tree.TREE_UNDEFINED else "undefined!"
+            for i in tree_.feature]
+        rules = []
+
+        def recurse(node, base_name):
+            if tree_.feature[node] != _tree.TREE_UNDEFINED:
+                name = feature_name[node]
+                symbol = '<='
+                symbol2 = '>'
+                threshold = tree_.threshold[node]
+                text = base_name + ["{} {} {}".format(name, symbol, threshold)]
+                recurse(tree_.children_left[node], text)
+
+                text = base_name + ["{} {} {}".format(name, symbol2,
+                                                      threshold)]
+                recurse(tree_.children_right[node], text)
+            else:
+                rule = str.join(' and ', base_name)
+                rule = (rule if rule != '' else ' == '.join([feature_names[0]] * 2))
+                label = tree.classes_[np.argmax(tree_.value[node])] * 1
+                rules.append((rule, label))
+
+        recurse(0, [])
+
+        return rules if len(rules) > 0 else 'True'

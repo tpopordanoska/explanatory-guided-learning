@@ -8,6 +8,7 @@ STRATEGIES = ["random",
               "sq_random",
               "xgl_clusters",
               'xgl_rules',
+              'xgl_rules_simple_tree',
               'xgl_rules_hierarchy']
 
 EXPERIMENTS = {
@@ -30,6 +31,7 @@ METHODS = {
     "xgl_clusters": lambda **kwargs: XglClusters(**kwargs),
     "xgl_rules": lambda **kwargs: XglRules(**kwargs),
     "xgl_rules_hierarchy": lambda **kwargs: XglRules(hierarchy=True, **kwargs),
+    "xgl_rules_simple_tree": lambda **kwargs: XglRules(simple_tree=True, **kwargs)
 }
 
 COLORS = ['tab:blue', 'tab:orange', 'tab:green', 'tab:purple', 'tab:red',
