@@ -8,6 +8,8 @@ from src.results.all_results import Results
 from src.utils import create_folders, initialize_experiment, write_to_file, create_strategies_list
 from src.utils.arguments import get_main_args
 from src.utils.plotting import plot_initial_points
+from src.utils.clustering import introduce_uu
+from src.experiments import Synthetic
 
 warnings.filterwarnings('ignore')
 
@@ -16,7 +18,8 @@ def run_experiments(strategies, args):
     results_path = create_folders()
     for experiment_name in args.experiments:
         experiment = initialize_experiment(experiment_name, args.seed, results_path)
-        # introduce_uu(experiment)
+        if not isinstance(experiment, Synthetic):
+            introduce_uu(experiment)
         loop = LearningLoop()
         results = Results()
 
