@@ -129,8 +129,7 @@ class RunningInstance:
 
         if query_idx:
             idx_in_train = np.where(self.train_idx == query_idx)[0][0]
-            # query_predicted = self.experiment.model.predict(self.get_from_indexes(X_train_norm, idx_in_train).reshape(1, -1))
-            query_predicted = self.normalize_and_predict([self.get_from_indexes(X_train, idx_in_train)])
+            query_predicted = self.predict(self.get_from_indexes(X_train_norm, idx_in_train).reshape(1, -1))
             self.results.query_scores.append(int(self.experiment.y[query_idx] == query_predicted[0]))
 
     def plot(self, title, query_idx=None, y_pred=None):
