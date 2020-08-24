@@ -15,4 +15,7 @@ from .steel_plate_faults import *
 from .phoneme import *
 from .iris import *
 from .glass import *
-
+from .heloc import *
+from .newsgroups import *
+from .magic import *
+from .risk import *

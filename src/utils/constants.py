@@ -29,6 +29,11 @@ EXPERIMENTS = {
     "phoneme": lambda **kwargs: Phoneme(**kwargs),
     "iris": lambda **kwargs: Iris(**kwargs),
     "glass": lambda **kwargs: Glass(**kwargs)
+    "heloc": Heloc,
+    "newsgroups-religion": NewsgroupsReligion,
+    "newsgroups-science": NewsgroupsScience,
+    "magic": Magic,
+    "risk": Risk,
 }
 
 METHODS = {

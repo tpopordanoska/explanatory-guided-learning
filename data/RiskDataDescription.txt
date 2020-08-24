@@ -1,0 +1,44 @@
+Consumer Credit Risk Revolving Loan Portfolio
+Stratified sample (using sampling weight)
+5,459 Defaults, 5,000 Non-Defaults
+10,459 rows, 37 columns
+
+Variable list:
+============================================================================
+Risk_Flag			Target:  0 = Default, 1 = Non-Default
+Interest_Revenue		Target:  Interest revenue earned
+Sampling_Weight			Sampling Weight
+Application_Date
+Age
+Income
+Debt_Ratio
+Nb_Borrowers
+Region
+Bank_Relationship
+Loan_Amt
+Loan_Amt_Req
+LTV
+FICO_Score
+Prior_Custom_Score
+Current_Custom_Score
+CB_Age_Oldest_TL
+CB_Age_Newest_TL
+CB_Avg_Mos_File
+CB_Nb_Sat_TL
+CB_Nb_60_Plus_TL
+CB_Nb_90_Plus_TL
+CB_Pct_Sat_TL
+CB_Mos_Since_Dlq
+CB_Max_Dlq_12_Mos
+CB_Max_Dlq_Ever
+CB_Nb_Total_TL
+CB_Nb_TL_Open_12
+CB_Pct_IL_TL
+CB_Nb_Inq_6_Mos
+CB_Nb_Inq_6_Mos_excl_7_Days
+CB_Rev_Util
+CB_IL_Util
+CB_Nb_Rev_TL_w_Bal
+CB_Nb_IL_TL_w_Bal
+CB_Nb_Rev_Tl_75_Pct_Limit
+CB_Pct_TL_w_Bal
