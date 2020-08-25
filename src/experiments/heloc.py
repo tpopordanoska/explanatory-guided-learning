@@ -67,7 +67,7 @@ class Heloc(Experiment):
 
         df.drop(columns=['RiskPerformance', 'MaxDelq2PublicRecLast12M', 'MaxDelqEver'], inplace=True)
         X = np.hstack([df.to_numpy(), X1, X2])
-        X = pd.DataFrame(data=X, columns=list(map(str, range(X.shape[1]))))
+        X = pd.DataFrame(data=X, columns=[f"c{j}" for j in range(X.shape[1])])
 
         sampled_idx, _ = list(StratifiedShuffleSplit(n_splits=2,
                                                      train_size=0.2,

@@ -1,6 +1,6 @@
 import os
 import pickle
-from datetime import datetime
+from datetime import datetime as dt
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_val_score
@@ -26,7 +26,7 @@ def create_folders():
         print("Successfully created the directory {} ".format(path_results))
 
     # Create a separate folder for each time running the experiment
-    path = os.path.join(path_results, datetime.now().strftime('%Y-%m-%d_%H-%M-%S.%f'))
+    path = os.path.join(path_results, dt.now().strftime('%Y-%m-%d_%H-%M-%S.%f'))
     try:
         os.mkdir(path)
     except FileExistsError:

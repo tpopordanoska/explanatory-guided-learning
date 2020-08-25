@@ -28,7 +28,7 @@ EXPERIMENTS = {
     "steel_plate_faults": lambda **kwargs: SteelPlateFaults(**kwargs),
     "phoneme": lambda **kwargs: Phoneme(**kwargs),
     "iris": lambda **kwargs: Iris(**kwargs),
-    "glass": lambda **kwargs: Glass(**kwargs)
+    "glass": lambda **kwargs: Glass(**kwargs),
     "heloc": Heloc,
     "newsgroups-religion": NewsgroupsReligion,
     "newsgroups-science": NewsgroupsScience,

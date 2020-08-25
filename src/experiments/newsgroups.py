@@ -15,7 +15,7 @@ class Newsgroups(Experiment):
     def __init__(self, **kwargs):
         rng = kwargs.pop("rng")
         kind = kwargs.pop("kind")
-        model = SVM()
+        model = GradientBoosting()
 
         dataset = fetch_20newsgroups(data_home='data',
                                      subset='all',
@@ -55,7 +55,7 @@ class Newsgroups(Experiment):
                 step=10000).fit_transform(X, y) # (3769, 67205)
         jndices = list(range(X.shape[1]))
         X = X[:, np.random.RandomState(0).choice(jndices, size=10000)]
-        X = pd.DataFrame(data=X, columns=list(map(str, range(X.shape[1]))))
+        X = pd.DataFrame(data=X, columns=[f"c{j}" for j in range(X.shape[1])])
 
         super().__init__(model, X, y,
                          feature_names=X.columns,
