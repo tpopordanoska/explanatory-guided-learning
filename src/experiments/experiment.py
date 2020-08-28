@@ -24,6 +24,7 @@ class Experiment:
         self.use_gower = use_gower
         self.path = None
         self.file = None
+        self.sample_weights = np.ones(len(X))
 
     @staticmethod
     def load_dataset(path, urls):

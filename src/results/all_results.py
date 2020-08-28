@@ -6,6 +6,8 @@ class Results:
     def __init__(self):
         self.scores_dict_f1 = defaultdict(list)
         self.scores_test_dict_f1 = defaultdict(list)
+        self.scores_dict_f1_weighted = defaultdict(list)
+        self.scores_test_dict_f1_weighted = defaultdict(list)
         self.scores_dict_auc = defaultdict(list)
         self.scores_test_dict_auc = defaultdict(list)
         self.scores_queries_dict_f1 = defaultdict(list)
@@ -19,6 +21,8 @@ class Results:
         res = running_instance.results
         self.scores_dict_f1[strategy].append(res.scores_f1)
         self.scores_test_dict_f1[strategy].append(res.test_scores_f1)
+        self.scores_dict_f1_weighted[strategy].append(res.scores_f1_weighted)
+        self.scores_test_dict_f1_weighted[strategy].append(res.test_scores_f1_weighted)
         self.scores_dict_auc[strategy].append(res.scores_auc)
         self.scores_test_dict_auc[strategy].append(res.test_scores_auc)
         self.scores_queries_dict_f1[strategy].append(res.query_scores)
@@ -37,6 +41,8 @@ class Results:
         dump(path + '__scores.pickle', {
             'train_f1': self.scores_dict_f1,
             'test_f1': self.scores_test_dict_f1,
+            'train_f1_weighted': self.scores_dict_f1_weighted,
+            'test_f1_weighted': self.scores_test_dict_f1_weighted,
             'train_auc': self.scores_dict_auc,
             'test_auc': self.scores_test_dict_auc,
             'queries_f1': self.scores_queries_dict_f1,

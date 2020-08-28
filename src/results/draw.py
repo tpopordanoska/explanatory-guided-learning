@@ -31,7 +31,7 @@ plt.rc('legend', fontsize=MEDIUM_SIZE)   # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 
-def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args, strategies, exp):
+def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plot_args, strategies, exp, title=""):
     """
     Plot the performance graphs.
 
@@ -42,6 +42,7 @@ def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plo
     :param scorer: The metric used to calculate the scores
     :param plot_args: A dictionary holding additional arguments
     :param strategies: A list of strategies to be plotted
+    :param title: Extra information to be added in the title
 
     """
     n_folds = plot_args["n_folds"]
@@ -50,7 +51,8 @@ def plot_results(scores_dict, scores_test_dict, score_passive, path, scorer, plo
     plot_acc(scores_dict_mean, scores_dict_std, score_passive, plot_args, strategies, " train set", scorer, path)
 
     scores_test_dict_mean, scores_test_dict_std = get_mean_and_std(scores_test_dict, n_folds)
-    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive, plot_args, strategies, exp, scorer, path)
+    plot_acc(scores_test_dict_mean, scores_test_dict_std, score_passive,
+             plot_args, strategies, exp + title, scorer, path)
 
 
 def plot_acc(scores, stds, score_passive, plot_args, strategies, img_title="", scorer="f1_macro", path=None):
@@ -155,7 +157,19 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, p
         save_plot(plt, path, method, img_title, use_date=False)
 
 
-def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, arg_strategies, path=None):
+def plot_grouped_narrative_bias_weighted(scores_test_dict, scores_queries_dict, plot_args, exp, arg_strategies, path):
+    plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args,
+                                exp, arg_strategies, path, " - weighted")
+
+
+def plot_grouped_narrative_bias(scores_test_dict,
+                                scores_queries_dict,
+                                plot_args,
+                                exp,
+                                arg_strategies,
+                                path=None,
+                                title=""):
+
     n_folds = plot_args["n_folds"]
     i = 0
     for method, scores_queries in sorted(scores_queries_dict.items()):
@@ -190,7 +204,7 @@ def plot_grouped_narrative_bias(scores_test_dict, scores_queries_dict, plot_args
         i += 1
 
     nb_path = create_folder(path, "narrative_bias")
-    save_plot(plt, nb_path, exp, "Narrative bias", use_date=False)
+    save_plot(plt, nb_path, exp + title, f"Narrative bias{title}", use_date=False)
 
 
 def plot_false_mistakes(false_mistakes_dict, path, strategies):
@@ -270,9 +284,20 @@ if __name__ == '__main__':
         # Plot the results
         plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"],
                      path_experiment, "avg $F_1$", results["args"], strategies, experiment)
+
+        plot_results(results["train_f1_weighted"], results["test_f1_weighted"], results["score_passive_f1"],
+                     path_experiment, "avg $F_1$", results["args"], strategies, experiment, title="- weighted")
+
         plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_experiment)
+
         plot_grouped_narrative_bias(results["test_f1"], results["queries_f1"], results["args"],
                                     experiment, strategies, path_folder)
+
+        plot_grouped_narrative_bias_weighted(results["test_f1_weighted"], results["queries_f1"], results["args"],
+                                     experiment, strategies, path_folder)
+
         plot_false_mistakes(results["false_mistakes"], path_experiment, strategies)
+
         plot_rules_wrt_blackbox_f1(results["rules_wrt_blackbox_f1"], results['args'], path_experiment)
+
 

@@ -71,6 +71,9 @@ class RunningInstance:
         self.experiment.file.write("F1 score: {}\n".format(score))
         return score
 
+    def get_f1_score_sample_weight(self, y_true, y_pred, indices):
+        return f1_score(y_true, y_pred, average='macro', sample_weight=self.experiment.sample_weights[indices])
+
     def get_auc_score(self, y_true, y_pred):
         try:
             score = roc_auc_score(y_true, y_pred)
@@ -94,6 +97,9 @@ class RunningInstance:
         self.results.test_scores_f1.append(self.calc_acc(y_test, y_pred_test, "f1"))
         self.results.scores_auc.append(self.calc_acc(y_train, y_pred_train, "auc"))
         self.results.test_scores_auc.append(self.calc_acc(y_test, y_pred_test, "auc"))
+
+        self.results.scores_f1_weighted.append(self.get_f1_score_sample_weight(y_train, y_pred_train, self.train_idx))
+        self.results.test_scores_f1_weighted.append(self.get_f1_score_sample_weight(y_test, y_pred_test, self.test_idx))
 
     def predict(self, X):
         return self.experiment.model.predict(X)

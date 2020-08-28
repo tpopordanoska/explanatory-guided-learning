@@ -19,6 +19,7 @@ def introduce_uu(experiment):
     idx_to_flip = [item for cluster in clusters_to_flip for item in clusters[cluster]]
     for idx in idx_to_flip:
         experiment.y[idx] = toggle(experiment.y[idx])
+        experiment.sample_weights[idx] *= 10
     return
 
 
