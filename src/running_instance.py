@@ -89,7 +89,7 @@ class RunningInstance:
         X_known, y_known, X_train, y_train, X_test, y_test = self.get_all_data()
         X_known, X_train, X_test = Normalizer(self.experiment.normalizer).normalize_all(X_known, X_train, X_test)
 
-        self.experiment.model.fit(X_known, y_known)
+        self.experiment.model.fit(X_known, y_known, self.experiment.sample_weights[self.known_idx])
         y_pred_train = self.predict(X_train)
         y_pred_test = self.predict(X_test)
 

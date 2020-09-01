@@ -20,8 +20,8 @@ class Learner:
     def get_params(self, deep=True):
         return self.sklearn_model.get_params()
 
-    def fit(self, X, y):
-        self.sklearn_model.fit(X, y)
+    def fit(self, X, y, sample_weight):
+        self.sklearn_model.fit(X, y, sample_weight=sample_weight)
 
     def decision_function(self, X):
         return self.sklearn_model.decision_function(X)
