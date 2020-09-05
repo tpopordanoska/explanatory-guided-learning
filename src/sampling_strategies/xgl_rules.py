@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
-from skrules import SkopeRules
+from sklearn import mixture
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.tree import _tree
+from skrules import SkopeRules
 
 from src.experiments import Synthetic
 from src.running_instance import RunningInstance
@@ -117,10 +118,18 @@ class XglRules(RunningInstance):
         """
         if isinstance(self.experiment, Synthetic):
             points = self.sample_extra_between(points)
+        else:
+            points = self.sample_extra(points)
+
         pred_rules = clf.predict(points)
         pred_blackbox = self.predict(points)
         score_rules_wrt_bb = self.get_f1_score(pred_blackbox, pred_rules)
         self.results.rules_wrt_blackbox_f1.append(score_rules_wrt_bb)
+
+    def sample_extra(self, points):
+        g = mixture.GaussianMixture(n_components=points.shape[1], random_state=self.experiment.rng).fit(points)
+
+        return g.sample(n_samples=500)[0]
 
     def find_clf_params(self, X_kte_features, kte_predictions, column_names):
         clf = SkopeRules()
