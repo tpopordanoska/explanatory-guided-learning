@@ -138,6 +138,17 @@ class RunningInstance:
             query_predicted = self.predict(self.get_from_indexes(X_train_norm, idx_in_train).reshape(1, -1))
             self.results.query_scores.append(int(self.experiment.y[query_idx] == query_predicted[0]))
 
+    def calculate_uus(self):
+        X_known, X_train = self.get_known_train_features()
+        _, X_train_norm = Normalizer(self.experiment.normalizer).normalize_known_train(X_known, X_train)
+
+        margins = self.get_margins(X_train_norm)
+        threshold = np.percentile(margins, 90)
+        mistakes = self.predict(X_train_norm) != self.experiment.y[self.train_idx]
+        margin_uus = margins[mistakes]
+
+        self.results.percent_uus.append(100 * np.sum(margin_uus >= threshold) / np.sum(mistakes))
+
     def plot(self, title, query_idx=None, y_pred=None):
         if self.args.plots_on:
             plot_decision_surface(self,

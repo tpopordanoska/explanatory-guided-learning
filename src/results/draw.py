@@ -5,19 +5,6 @@ from src.utils.common import *
 from src.utils.constants import *
 from src.utils.plotting import save_plot
 
-FORMATTING_METHODS = {
-    "al_dw_1": "al-dw",
-    "al_lc": "al-us",
-    "xgl_rules_100.0": "xgl-rules",
-    "sq_random": "gl",
-    "xgl_rules_10.0": "xgl-rules10",
-    "xgl_rules_1.0": "xgl-rules1",
-    "xgl_rules_hierarchy_100.0": "xgl-rules_hierarchy",
-    "xgl_rules_hierarchy_10.0": "rules_hierarchy",
-    "xgl_rules_hierarchy_1.0":  "xgl-rules_hierarchy",
-    "xgl_clusters_1.0": "xgl",
-}
-
 SMALL_SIZE = 12
 MEDIUM_SIZE = 14
 BIGGER_SIZE = 18
@@ -153,7 +140,9 @@ def plot_narrative_bias(scores_test_dict, scores_queries_dict, plot_args, exp, p
 
         plt.xlabel('Number of obtained labels')
         plt.legend()
-        img_title = "nb_{}_{}".format(exp, FORMATTING_METHODS.get(method, method))
+        param, key = extract_param_from_name(method)
+        img_title = "nb_{}_{}".format(exp, format_label(key, param))
+
         save_plot(plt, path, method, img_title, use_date=False)
 
 
@@ -225,18 +214,18 @@ def plot_false_mistakes(false_mistakes_dict, path, strategies):
     save_plot(plt, path, "False mistakes", "False mistakes", use_date=False)
 
 
-def plot_rules_wrt_blackbox_f1(rules_f1_dict, plot_args, path):
+def plot_single_results_dict(results_dict, plot_args, path, title=""):
     n_folds = plot_args["n_folds"]
-    scores_rules_dict_mean, scores_rules_dict_std = get_mean_and_std(rules_f1_dict, n_folds)
+    results_dict_mean, results_dict_std = get_mean_and_std(results_dict, n_folds)
 
-    for method, score in sorted(scores_rules_dict_mean.items()):
+    for method, score in sorted(results_dict_mean.items()):
+        param, key = extract_param_from_name(method)
         x = np.arange(len(score))
-        plt.plot(x, score, linewidth=2, markevery=20, label=method)
-        plt.fill_between(x, score - scores_rules_dict_std[method],
-                         score + scores_rules_dict_std[method], alpha=0.25, linewidth=0)
+        plt.plot(x, score, linewidth=2, markevery=20, label=format_label(key, param))
+        plt.fill_between(x, score - results_dict_std[method], score + results_dict_std[method], alpha=0.25, linewidth=0)
         plt.legend()
 
-    save_plot(plt, path, "Rules f1 wrt blackbox", "Rules f1 wrt blackbox", use_date=False)
+    save_plot(plt, path, title, title, use_date=False)
 
 
 def running_mean(data, window_width):
@@ -261,8 +250,10 @@ def format_label(method, param):
     elif method == 'xgl_clusters':
         return "XGL(clustering) (θ={})".format(param)
     elif method == 'xgl_rules_hierarchy':
-        return "XGL (hier.) (θ={})".format(param)
+        return "XGL_skope (hier.) (θ={})".format(param)
     elif method == 'xgl_rules':
+        return "XGL_skope (θ={})".format(param)
+    elif method == 'xgl_rules_simple_tree':
         return "XGL (θ={})".format(param)
     else:
         return method
@@ -298,6 +289,9 @@ if __name__ == '__main__':
 
         plot_false_mistakes(results["false_mistakes"], path_experiment, strategies)
 
-        plot_rules_wrt_blackbox_f1(results["rules_wrt_blackbox_f1"], results['args'], path_experiment)
+        plot_single_results_dict(results["rules_wrt_blackbox_f1"], results['args'],
+                                 path_experiment, "Rules f1 wrt blackbox")
+
+        plot_single_results_dict(results["percent_uus"], results["args"], path_experiment, "Percent UUs")
 
 

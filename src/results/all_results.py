@@ -13,6 +13,7 @@ class Results:
         self.scores_queries_dict_f1 = defaultdict(list)
         self.false_mistakes_dict = defaultdict(list)
         self.rules_wrt_blackbox_f1_dict = defaultdict(list)
+        self.percent_uus_dict = defaultdict(list)
         self.score_passive_f1 = []
         self.score_passive_auc = []
         self.args = {}
@@ -28,6 +29,7 @@ class Results:
         self.scores_queries_dict_f1[strategy].append(res.query_scores)
         self.false_mistakes_dict[strategy].append(res.false_mistakes_count)
         self.rules_wrt_blackbox_f1_dict[strategy].append(res.rules_wrt_blackbox_f1)
+        self.percent_uus_dict[strategy].append(res.percent_uus)
         self.score_passive_f1 = get_passive_score(running_instance, "f1_macro")
         self.score_passive_auc = get_passive_score(running_instance, "roc_auc")
         self.args = {
@@ -50,5 +52,6 @@ class Results:
             'score_passive_f1': self.score_passive_f1,
             'score_passive_auc': self.score_passive_auc,
             'false_mistakes': self.false_mistakes_dict,
+            'percent_uus': self.percent_uus_dict,
             'args': self.args,
         })

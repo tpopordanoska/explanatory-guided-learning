@@ -10,3 +10,4 @@ class ResultsPerStrategy:
         self.false_mistakes_count = [0]
         self.scores_f1_weighted = []
         self.test_scores_f1_weighted = []
+        self.percent_uus = []

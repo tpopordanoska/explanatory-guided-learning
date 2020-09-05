@@ -38,6 +38,7 @@ class LearningLoop:
                 continue
 
             running_instance.calculate_query_accuracy(query_idx)
+            running_instance.calculate_uus()
             running_instance.plot(title="{} {}".format(iteration, method), query_idx=query_idx)
             # 2. Label
             running_instance.label_query(query_idx)
