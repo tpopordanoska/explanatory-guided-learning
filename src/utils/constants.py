@@ -20,7 +20,15 @@ EXPERIMENTS = {
     "credit": lambda **kwargs: Credit(**kwargs),
     "australian": lambda **kwargs: Australian(**kwargs),
     "hepatitis": lambda **kwargs: Hepatitis(**kwargs),
-    "heart": lambda **kwargs: Heart(**kwargs)
+    "heart": lambda **kwargs: Heart(**kwargs),
+    "wine": lambda **kwargs: Wine(**kwargs),
+    "covertype": lambda **kwargs: Covertype(**kwargs),
+    "kdd_cup99": lambda **kwargs: KddCup99(**kwargs),
+    "blood_transfusion": lambda **kwargs: BloodTransfusion(**kwargs),
+    "steel_plate_faults": lambda **kwargs: SteelPlateFaults(**kwargs),
+    "phoneme": lambda **kwargs: Phoneme(**kwargs),
+    "iris": lambda **kwargs: Iris(**kwargs),
+    "glass": lambda **kwargs: Glass(**kwargs)
 }
 
 METHODS = {
