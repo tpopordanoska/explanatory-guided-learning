@@ -20,7 +20,7 @@ class SteelPlateFaults(Experiment):
                    "Square_Index", "Outside_X_Index", "Edges_X_Index", "Edges_Y_Index", "Outside_Global_Index",
                    "LogOfAreas", "Log_X_Index", "Log_Y_Index", "Orientation_Index", "Luminosity_Index",
                    "SigmoidOfAreas", "Pastry", "Z_Scratch", "K_Scratch", "Stains", "Dirtiness", "Bumps", "Other_Faults"]
-        dataset = pd.read_csv("data/faults.nna", names=columns, delimiter='\t')
+        dataset = pd.read_csv("data/Faults.NNA", names=columns, delimiter='\t')
 
         # Drop OHE of target types and create a single Target column
         targets = dataset.iloc[:, 27:35]
