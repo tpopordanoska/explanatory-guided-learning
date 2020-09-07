@@ -74,6 +74,10 @@ def add_experiments_and_seed_args(parser):
                         choices=sorted(EXPERIMENTS.keys()),
                         default=EXPERIMENTS.keys(),
                         help='The names of the experiments to be performed')
+    parser.add_argument('--add-uus',
+                        type=float,
+                        default=0.0,
+                        help='Add extra unknown unknowns?  0 or weight.')
     parser.add_argument('--seed',
                         type=int,
                         default=0,

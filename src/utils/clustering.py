@@ -22,7 +22,6 @@ def introduce_uu(experiment, weight):
         experiment.y[idx] = toggle(experiment.y[idx])
         experiment.sample_weights[idx] *= weight
     print(f"UUs weight: {weight}")
-    return
 
 
 def toggle(value):

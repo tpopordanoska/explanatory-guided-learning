@@ -18,8 +18,8 @@ def run_experiments(strategies, args):
     results_path = create_folders()
     for experiment_name in args.experiments:
         experiment = initialize_experiment(experiment_name, args.seed, results_path)
-        if not isinstance(experiment, Synthetic):
-            introduce_uu(experiment, args.weight_uus)
+        if args.add_uus:
+            introduce_uu(experiment, args.add_uus)
         loop = LearningLoop()
         results = Results()
 
