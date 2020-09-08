@@ -5,6 +5,8 @@ from src.utils.common import *
 from src.utils.constants import *
 from src.utils.plotting import save_plot
 
+from collections import defaultdict
+
 SMALL_SIZE = 12
 MEDIUM_SIZE = 14
 BIGGER_SIZE = 18
@@ -259,24 +261,76 @@ def format_label(method, param):
         return method
 
 
+def merge_dicts(ds):
+    ds = list(ds)
+    d = ds[0].copy()
+    for di in ds[1:]:
+        d.update(di)
+    return d
+
+
+def merge_results(results_set):
+    KEYS = [
+        'args',
+        'train_f1', # defaultdict, keys are methods
+        'train_f1_weighted', # defaultdict
+        'train_auc', # defaultdict
+        'test_f1', # defaultdict
+        'test_f1_weighted', # defaultdict
+        'test_auc', # defaultdict
+        'score_passive_f1', # dict, keys are ['mean', 'std']
+        'score_passive_auc', # dict
+        'queries_f1', # defaultdict
+        'rules_wrt_blackbox_f1', # defaultdict
+        'false_mistakes', # defaultdict
+        'percent_uus', # defaultdict
+    ]
+    merged = {}
+    for key in KEYS:
+        if key == 'args':
+            merged_value = results_set[0]['args'] # HACK
+        elif key.startswith('score_passive_'):
+            merged_value = results_set[0][key]
+        else:
+            merged_value = merge_dicts(results[key] for results in results_set)
+        merged[key] = merged_value
+    return merged
+
+
 if __name__ == '__main__':
     path_results = os.path.join(os.getcwd(), "results")
     result_folders = os.listdir(path_results)
 
     args = get_drawing_args(result_folders)
     strategies = create_strategies_list(args)
-    path_folder = os.path.join(path_results, args.folder)
 
-    pickles = [f for f in os.listdir(path_folder) if f.endswith(".pickle")]
-    for filename in pickles:
-        experiment = filename.split("__")[0]
-        path_experiment = create_folder((os.path.join(path_results, args.folder)), experiment)
-        results = load(os.path.join(path_results, args.folder, filename))
+    experiment_to_results_set = defaultdict(list)
+    for folder in args.folder.split(','):
+        path_folder = os.path.join(path_results, folder)
+        pickles = [f for f in os.listdir(path_folder) if f.endswith(".pickle")]
+
+        for filename in pickles:
+            experiment = filename.split("__")[0]
+            results = load(os.path.join(path_folder, filename))
+            experiment_to_results_set[experiment].append(results)
+
+    for experiment, results_set in experiment_to_results_set.items():
+        path_experiment = create_folder(args.results, experiment)
+        results = merge_results(results_set)
+
         # Plot the results
-        plot_results(results["train_f1"], results["test_f1"], results["score_passive_f1"],
-                     path_experiment, "avg $F_1$", results["args"], strategies, experiment)
+        plot_results(results["train_f1"],
+                     results["test_f1"],
+                     results["score_passive_f1"],
+                     path_experiment,
+                     "avg $F_1$",
+                     results["args"],
+                     strategies,
+                     experiment)
 
-        plot_results(results["train_f1_weighted"], results["test_f1_weighted"], results["score_passive_f1"],
+        plot_results(results["train_f1_weighted"],
+                     results["test_f1_weighted"],
+                     results["score_passive_f1"],
                      path_experiment, "avg $F_1$", results["args"], strategies, experiment, title="- weighted")
 
         plot_narrative_bias(results["test_f1"], results["queries_f1"], results["args"], experiment, path_experiment)

@@ -89,6 +89,10 @@ def add_folder_arg(parser, folder):
                         type=str,
                         default=folder[-1],
                         help="The name of the folder where the .pickle file is stored")
+    parser.add_argument('--results',
+                        type=str,
+                        default='results',
+                        help="The name of the folder where the plots will be stored")
 
 
 def add_plotting_option_arg(parser):
