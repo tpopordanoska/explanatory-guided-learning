@@ -8,6 +8,7 @@ def get_main_args():
     add_num_iter_folds_clusters_args(parser)
     add_experiments_and_seed_args(parser)
     add_plotting_option_arg(parser)
+    add_weight_arg(parser)
 
     return parser.parse_args()
 
@@ -91,3 +92,10 @@ def add_plotting_option_arg(parser):
                         type=bool,
                         default=False,
                         help="Whether to plot additional graphs")
+
+
+def add_weight_arg(parser):
+    parser.add_argument('--weight_uus',
+                        type=int,
+                        default=1,
+                        help="The weight of the added unknown unknowns")

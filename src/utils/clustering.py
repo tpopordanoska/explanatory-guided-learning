@@ -5,11 +5,12 @@ from pyclustering.cluster.kmedoids import kmedoids
 from src.utils.plotting import plot_kmedoids
 
 
-def introduce_uu(experiment):
+def introduce_uu(experiment, weight):
     """
     Introduce unknown unknowns by flipping the class of random sub-groups from the training data
 
     :param experiment: The experiment being run
+    :param weight: The weight of the unknown unknowns
     """
     X_y = np.concatenate((experiment.X, experiment.y[:, None]), axis=1)
     kmedoids_instance, _ = get_kmedoids_instance(X_y, 100, experiment.use_gower)
@@ -19,7 +20,8 @@ def introduce_uu(experiment):
     idx_to_flip = [item for cluster in clusters_to_flip for item in clusters[cluster]]
     for idx in idx_to_flip:
         experiment.y[idx] = toggle(experiment.y[idx])
-        experiment.sample_weights[idx] *= 10
+        experiment.sample_weights[idx] *= weight
+    print(f"UUs weight: {weight}")
     return
 
 

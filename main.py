@@ -19,7 +19,7 @@ def run_experiments(strategies, args):
     for experiment_name in args.experiments:
         experiment = initialize_experiment(experiment_name, args.seed, results_path)
         if not isinstance(experiment, Synthetic):
-            introduce_uu(experiment)
+            introduce_uu(experiment, args.weight_uus)
         loop = LearningLoop()
         results = Results()
 
