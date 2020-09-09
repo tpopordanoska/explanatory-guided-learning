@@ -136,7 +136,8 @@ class RunningInstance:
         if query_idx:
             idx_in_train = np.where(self.train_idx == query_idx)[0][0]
             query_predicted = self.predict(self.get_from_indexes(X_train_norm, idx_in_train).reshape(1, -1))
-            self.results.query_scores.append(int(self.experiment.y[query_idx] == query_predicted[0]))
+            weight = self.experiment.sample_weights[query_idx] or 1
+            self.results.query_scores.append(weight * int(self.experiment.y[query_idx] == query_predicted[0]))
 
     def calculate_uus(self):
         X_known, X_train = self.get_known_train_features()
